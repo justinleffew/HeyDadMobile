@@ -37,18 +37,18 @@ export default function SplashScreen() {
       withTiming(0, { duration: 400 })
     );
 
-    setTimeout(() => {
+    const t1 = setTimeout(() => {
       translateY.value = withSpring(0, {
         damping: 12,
         stiffness: 100,
       });
     }, 500);
 
-    setTimeout(() => {
+    const t2 = setTimeout(() => {
       runOnJS(setShowSubtext)(true);
     }, 1200);
 
-    setTimeout(() => {
+    const t3 = setTimeout(() => {
       pulse.value = withRepeat(
         withSequence(
           withTiming(1.1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
@@ -59,11 +59,16 @@ export default function SplashScreen() {
       );
     }, 1500);
 
-    const timer = setTimeout(() => {
+    const t4 = setTimeout(() => {
       router.replace('/(auth)/sign-in');
     }, 3500);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+    };
   }, []);
 
   const logoStyle = useAnimatedStyle(() => ({
@@ -133,8 +138,7 @@ export default function SplashScreen() {
               <Image
                 className="w-24 h-24 rounded-2xl justify-center items-center"
                 source={require('../assets/logo.png')}
-                contentFit="cover"
-                transition={1000}
+
               />
             </View>
 
@@ -147,29 +151,9 @@ export default function SplashScreen() {
           className="absolute bottom-20 flex-row space-x-2"
         >
           {[0, 1, 2].map((index) => (
-            <Animated.View
+            <View
               key={index}
               className="w-2 h-2 mx-1 bg-[#a78658] rounded-full"
-              style={useAnimatedStyle(() => ({
-                opacity: withRepeat(
-                  withSequence(
-                    withTiming(0.3, { duration: 400 }),
-                    withTiming(1, { duration: 400 })
-                  ),
-                  -1,
-                  true
-                ),
-                transform: [{
-                  scale: withRepeat(
-                    withSequence(
-                      withTiming(0.8, { duration: 400 }),
-                      withTiming(1, { duration: 400 })
-                    ),
-                    -1,
-                    true
-                  )
-                }]
-              }))}
             />
           ))}
         </Animated.View>

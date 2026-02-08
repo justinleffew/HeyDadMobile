@@ -24,7 +24,7 @@ interface PricingItemProps {
   description: string;
   price: string;
   popular?: boolean
-  current?: boolean
+  currentPlan?: string
 }
 
 const API_BASE_URL = "https://heydad.pro"
@@ -53,7 +53,7 @@ export default function(props: PricingModalProps) {
       if (!trialStartDate) { return setIsTrial(true) }
       const createdAt = new Date(user.created_at)
       const now = new Date()
-      const diffMs = now - createdAt
+      const diffMs = now.getTime() - createdAt.getTime()
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
       if (diffDays <= 30) {
         setIsTrial(true)
@@ -232,9 +232,9 @@ export default function(props: PricingModalProps) {
   }
 
 
-  const PricingItem = ({ id, hasSubscription, title, description, price, popular, type, current }: PricingItemProps) => {
+  const PricingItem = ({ id, hasSubscription, title, description, price, popular, type, currentPlan: itemCurrentPlan }: PricingItemProps) => {
 
-    const isCurrentSubAnnual = hasSubscription && current === "year"
+    const isCurrentSubAnnual = hasSubscription && itemCurrentPlan === "year"
     const isAnnualIAP = id === "unlimited_annual"
     // Unlimited stories for 30 days. No credit card needed. 
     const titleMap = {
@@ -336,7 +336,7 @@ export default function(props: PricingModalProps) {
                     key={sub.id}
                     hasSubscription={hasSubscription}
                     id={sub.id}
-                    current={currentPlan}
+                    currentPlan={currentPlan}
                     type={sub.type}
                     popular={sub.title === "Unlimited - Annual"}
                     title={sub.title}
@@ -348,7 +348,7 @@ export default function(props: PricingModalProps) {
                   return <PricingItem
                     key={product.id}
                     id={product.id}
-                    current={currentPlan}
+                    currentPlan={currentPlan}
                     hasSubscription={hasSubscription}
                     type={product.type}
                     title={product.title}

@@ -98,7 +98,7 @@ const renderCategoryIcon = (name) => {
           <Ionicons name="accessibility-outline" {...iconProps} />
         </View>
       );
-    case "Philisophy & Beliefs":
+    case "Philosophy & Beliefs":
       return (
         <View className="w-12 h-12 rounded-2xl bg-[#233241] items-center justify-center">
           <Ionicons name="color-filter-outline" {...iconProps} />

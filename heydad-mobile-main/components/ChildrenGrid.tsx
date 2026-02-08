@@ -77,7 +77,7 @@ const ChildrenGrid = ({
                       <Image
                         source={{ uri: childImageUrls[child.id] }}
                         className={`w-16 h-16 rounded-full border ${isDark ? 'border-gray-600' : 'border-[#6B7F39]'}`}
-                        style={{ objectFit: 'cover' }}
+                        resizeMode="cover"
                       />
                     ) : (
                       <View className={`w-16 h-16 rounded-full items-center justify-center border-2 ${placeholderCircleClass}`}>

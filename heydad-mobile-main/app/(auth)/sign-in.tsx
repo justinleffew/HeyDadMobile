@@ -1,5 +1,5 @@
 import { View, Text, Image, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -16,10 +16,7 @@ import { supabase } from 'utils/supabase';
 import { useTheme } from '../../providers/ThemeProvider';
 
 export default function SignInScreen() {
-  GoogleSignin.configure({
-    webClientId: "870176413610-odhkv6966mu0net7ff1u885oh8s0qmof.apps.googleusercontent.com",
-    iosClientId: "870176413610-b0nq2pnugvk0u89h36tbf12t80vrkrm2.apps.googleusercontent.com"
-  })
+  // GoogleSignin configured in useEffect below
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,12 +26,19 @@ export default function SignInScreen() {
   const { colorScheme } = useTheme();
   const isDark = colorScheme === 'dark';
 
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: "870176413610-odhkv6966mu0net7ff1u885oh8s0qmof.apps.googleusercontent.com",
+      iosClientId: "870176413610-b0nq2pnugvk0u89h36tbf12t80vrkrm2.apps.googleusercontent.com"
+    });
+  }, []);
+
   const buttonScale = useSharedValue(1);
   const formOpacity = useSharedValue(0);
 
-  useState(() => {
+  useEffect(() => {
     formOpacity.value = withTiming(1, { duration: 800 });
-  });
+  }, []);
 
   async function signInWithEmail() {
     const {
@@ -76,20 +80,12 @@ export default function SignInScreen() {
     try {
       await GoogleSignin.hasPlayServices();
       const userInfo = await GoogleSignin.signIn();
-      const { data, error } = await supabase.auth.signInWithIdToken({ provider: 'google', token: userInfo.data.idToken, })
-      signIn(data.user);
+      const { data, error } = await supabase.auth.signInWithIdToken({ provider: 'google', token: userInfo.data?.idToken || '', })
+        if (!error && data?.user) {
+          signIn(data.user);
+        }
     } catch (error) {
       console.error('Google Sign-In Error:', error);
-    }
-  }
-
-  async function signOut() {
-    try {
-      await GoogleSignin.revokeAccess();
-      await GoogleSignin.signOut();
-      // Handle successful sign-out
-    } catch (error) {
-      console.error('Google Sign-Out Error:', error);
     }
   }
 

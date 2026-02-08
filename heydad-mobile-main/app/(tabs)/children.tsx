@@ -19,7 +19,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import ChildrenGrid from 'components/ChildrenGrid';
 import { useTheme } from '../../providers/ThemeProvider';
 import { generateChildAccessCode, normalizeAccessCode } from 'utils/accessCode';
-import { isAbsolute } from 'path';
+
 
 const ChildrenScreen = () => {
   const { height } = Dimensions.get('window')
@@ -78,8 +78,8 @@ const ChildrenScreen = () => {
   const resetForm = () => {
     setFormData({
       name: "",
-      birthdate: "",
-      imageFile: null,
+      birthdate: new Date(),
+      imageFile: "",
       imagePreview: "",
     });
     setShowAddForm(false);
@@ -262,8 +262,7 @@ const ChildrenScreen = () => {
     return mimeTypes[extension] || 'image/jpeg';
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setFormLoading(true);
     setError("");
     setMessage("");
@@ -314,7 +313,7 @@ const ChildrenScreen = () => {
       await fetchChildren();
       resetForm();
     } catch (error) {
-      setError(error.message);
+      setError(error instanceof Error ? error.message : 'An error occurred');
       console.log(error)
     } finally {
       setFormLoading(false);
@@ -351,7 +350,7 @@ const ChildrenScreen = () => {
 
   useEffect(() => {
     fetchChildren();
-  }, [user]);
+  }, [user?.id]);
 
   return (
     <SafeAreaView className={`flex-1 ${screenBackgroundClass}`}>
@@ -456,7 +455,7 @@ const ChildrenScreen = () => {
 
                   <View className="mt-4 flex-row items-center space-x-3 gap-3">
                     <TouchableOpacity
-                      style={{ alignItems: 'center', justifyCenter: "center" }}
+                      style={{ alignItems: 'center', justifyContent: "center" }}
                       onPress={handleSubmit}
                       disabled={formLoading}
                       className={addButtonClass(formLoading)}

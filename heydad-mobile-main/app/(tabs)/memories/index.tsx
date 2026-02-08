@@ -99,7 +99,7 @@ const NotesList = ({
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         className="overflow-hidden h-16 w-16 rounded-full flex items-center justify-center"
-                        style={{ borderRadius: "100%", width: 64, height: 64, justifyContent: "center", alignItems: "center" }}
+                        style={{ borderRadius: 32, width: 64, height: 64, justifyContent: "center", alignItems: "center" }}
                       >
                         <Ionicons name="pencil-outline" size={24} color="white" />
                       </LinearGradient>
@@ -167,7 +167,7 @@ const SignedImage = ({ path, bucket }) => {
       mounted = false;
     };
   }, [path, bucket]);
-  return url ? <Image src={url} alt="" className="w-full h-full object-cover" /> : null;
+  return url ? <Image source={{ uri: url }} className="w-full h-full" resizeMode="cover" /> : null;
 };
 
 const SignedAudio = ({ path, bucket }) => {
@@ -396,7 +396,7 @@ const UnlockBadge = ({ item, getUnlockStatus }) => {
       colors={['#D4B996', '#C2A16C', '#D4B996']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 0 }}
-      style={{ borderRadius: 8, paddingHorizontal: 12, paddingVertcal: 4, flexDirection: "row" }}
+      style={{ borderRadius: 8, paddingHorizontal: 12, paddingVertical: 4, flexDirection: "row" }}
       className="px-3 py-1 rounded-lg overflow-hidden shadow flex-row items-center"
 
     >
@@ -430,6 +430,7 @@ const MemoriesScreen = () => {
   const [videoUrl, setVideoUrl] = useState(null);
 
   useFocusEffect(useCallback(() => {
+    if (!user?.id) return;
     (async () => {
       setLoading(true);
 
@@ -477,7 +478,7 @@ const MemoriesScreen = () => {
       setLoading(false);
     })();
     //
-  }, []))
+  }, [user?.id]))
 
   useEffect(() => {
     setTab(defaultTab || 'audio')
@@ -634,7 +635,7 @@ const MemoriesScreen = () => {
 
   return (
     <SafeAreaView className={`flex-1 ${screenBackground}`}>
-      <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor={isDark ? '#1f2937' : '#1e293b'} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={isDark ? '#1f2937' : '#1e293b'} />
 
       <Text className={`text-4xl px-4 text-center font-merriweather mt-6 mb-2 ${isDark ? 'text-gray-100' : 'text-slate-600'}`}>Dad Stories</Text>
 

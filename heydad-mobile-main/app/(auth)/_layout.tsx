@@ -62,7 +62,8 @@ export default function AuthLayout() {
           const {
             data: { session },
           } = await supabase.auth.getSession();
-          const id = session.user.id
+          const id = session?.user?.id
+          if (!id) return;
           await registerPushTokenForUser(id)
           const ok = await initNotifications();
           //Set user last active

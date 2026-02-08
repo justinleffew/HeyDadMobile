@@ -1,108 +1,110 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../utils/supabase';
 
 export function useProfileAccess() {
-  const [hasAccess, setHasAccess] = useState(false)
-  const [isPowerDad, setIsPowerDad] = useState(false)
-  const [videosRemaining, setVideosRemaining] = useState(0)
+  const [hasAccess, setHasAccess] = useState(false);
+  const [isPowerDad, setIsPowerDad] = useState(false);
+  const [videosRemaining, setVideosRemaining] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState("")
-  const [hasSubscription, setHasSubscription] = useState(false)
-  const [subscriptionInterval, setSubscriptionInterval] = useState("")
-  const [isStripe, setIsStripe] = useState(false)
+  const [userId, setUserId] = useState('');
+  const [hasSubscription, setHasSubscription] = useState(false);
+  const [subscriptionInterval, setSubscriptionInterval] = useState('');
+  const [isStripe, setIsStripe] = useState(false);
 
-  const fetchSubscription = async (userId: string) => {
-    if (userId) {
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .select("status, interval, current_period_end, created_at, stripe_subscription_id")
-        .eq("user_id", `${userId}`)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+  const fetchSubscription = useCallback(async (uid: string) => {
+    if (!uid) return null;
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('status, interval, current_period_end, created_at, stripe_subscription_id')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-      if (error) {
-        console.error("Error fetching latest subscription:", error);
-        return null;
-      }
-      if (data?.status) {
-        setHasSubscription(data?.status === 'active')
-        setSubscriptionInterval(data?.interval)
-        setIsStripe(!!data?.stripe_subscription_id)
-      }
-      return data;
+    if (error) {
+      console.error('Error fetching latest subscription:', error);
+      return null;
     }
-  };
-
-  async function getUserId(): Promise<string | undefined> {
-    try {
-      setLoading(true)
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session?.user?.id) throw new Error("No auth user");
-      setUserId(session?.user?.id)
-      return session?.user?.id;
-    } catch (e) {
-      console.log(e)
-    } finally {
-      setLoading(false)
+    if (data?.status) {
+      setHasSubscription(data.status === 'active');
+      setSubscriptionInterval(data.interval || '');
+      setIsStripe(!!data.stripe_subscription_id);
+    } else {
+      setHasSubscription(false);
+      setSubscriptionInterval('');
+      setIsStripe(false);
     }
-  }
+    return data;
+  }, []);
+
+  const loadProfile = useCallback(async (uid: string) => {
+    if (!uid) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('has_access,is_power_dad,videos_remaining')
+      .eq('id', uid)
+      .maybeSingle();
+
+    setHasAccess(data?.has_access ?? false);
+    setVideosRemaining(data?.videos_remaining ?? 0);
+    setIsPowerDad(data?.is_power_dad ?? false);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    getUserId()
-  }, [])
+    (async () => {
+      try {
+        setLoading(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user?.id) throw new Error('No auth user');
+        setUserId(session.user.id);
+      } catch (e) {
+        console.log(e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
 
-    const load = async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('has_access,is_power_dad,videos_remaining',)
-        .eq('id', userId)
-        .maybeSingle();
-
-      setHasAccess(data?.has_access ?? null);
-      setVideosRemaining(data?.videos_remaining ?? null);
-      setIsPowerDad(data?.is_power_dad ?? null);
-      setLoading(false);
-    };
-
-    fetchSubscription(userId)
-    load()
+    fetchSubscription(userId);
+    loadProfile(userId);
 
     const interval = setInterval(() => {
-      fetchSubscription(userId)
-    }, 5000)
-    const subInterval = setInterval(load, 5000)
-    return () => {
-      clearInterval(interval)
-      clearInterval(subInterval)
-    }
-  }, [userId, fetchSubscription]);
+      fetchSubscription(userId);
+      loadProfile(userId);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [userId, fetchSubscription, loadProfile]);
 
   useEffect(() => {
     if (!userId) return;
     const channel = supabase
-      .channel('profiles_updates')
+      .channel(`profiles_updates_${userId}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'profiles',
           filter: `id=eq.${userId}`,
         },
         (payload) => {
-          setHasAccess(payload.new.has_access);
-          setVideosRemaining(payload.new.videos_remaining);
-          setIsPowerDad(payload.new.is_power_dad);
+          if (payload.new) {
+            setHasAccess(payload.new.has_access ?? false);
+            setVideosRemaining(payload.new.videos_remaining ?? 0);
+            setIsPowerDad(payload.new.is_power_dad ?? false);
+          }
         }
       )
       .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [userId]);
 
   return { isStripe, hasAccess, videosRemaining, isPowerDad, loading, hasSubscription, subscriptionInterval };

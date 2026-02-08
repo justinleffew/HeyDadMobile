@@ -6,30 +6,30 @@ import { useTheme } from 'providers/ThemeProvider';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requireButh?: boolean;
+  requireAuth?: boolean;
   redirectTo?: string;
 }
 
 export default function ProtectedRoute({
   children,
-  requireButh = true,
+  requireAuth = true,
   redirectTo = '/(auth)/sign-in'
 }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading } = useAuth();
+  const { colorScheme } = useTheme();
+  const isDark = colorScheme === 'dark';
+  const tabBarBackground = isDark ? '#1f2937' : '#ffffff';
 
   useEffect(() => {
     if (!isLoading) {
-      if (requireButh && !isAuthenticated) {
-        // User is not authenticated, redirect to auth
+      if (requireAuth && !isAuthenticated) {
         router.replace(redirectTo);
-      } else if (!requireButh && isAuthenticated) {
-        // User is authenticated but trying to access auth screens
+      } else if (!requireAuth && isAuthenticated) {
         router.replace('/(tabs)');
       }
     }
-  }, [isAuthenticated, isLoading, requireButh, redirectTo]);
+  }, [isAuthenticated, isLoading, requireAuth, redirectTo]);
 
-  // Show loading spinner while checking authentication
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-slate-800">
@@ -38,18 +38,14 @@ export default function ProtectedRoute({
     );
   }
 
-  // Show nothing while redirecting
-  if ((requireButh && !isAuthenticated) || (!requireButh && isAuthenticated)) {
+  if ((requireAuth && !isAuthenticated) || (!requireAuth && isAuthenticated)) {
     return null;
   }
 
-
-  const { colorScheme } = useTheme();
-  const isDark = colorScheme === 'dark';
-  const tabBarBackground = isDark ? '#1f2937' : '#1f2937';
-
-  return <SafeAreaView style={{ flex: 1 }}>
-    <View style={{ backgroundColor: tabBarBackground, position: "absolute", bottom: 0, left: 0, right: 0, height: 40 }}></View>
-    {children}
-  </SafeAreaView>;
+  return (
+    <SafeAreaView style={{ flex: 1 }}>
+      <View style={{ backgroundColor: tabBarBackground, position: "absolute", bottom: 0, left: 0, right: 0, height: 40 }} />
+      {children}
+    </SafeAreaView>
+  );
 }
