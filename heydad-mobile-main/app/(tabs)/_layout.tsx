@@ -15,8 +15,8 @@ export default function TabLayout() {
   const segments = useSegments()
   const router = useRouter()
 
-  const tabBarBackground = isDark ? '#1f2937' : '#1f2937';
-  const statusBarStyle = isDark ? 'light' : 'light';
+  const tabBarBackground = isDark ? '#1f2937' : '#ffffff';
+  const statusBarStyle = isDark ? 'light' : 'dark';
 
   const { user, trialStartDate, setShowPricingModal } = useAuth()
   const { isPowerDad, videosRemaining, hasSubscription } = useProfileAccess()
@@ -26,7 +26,7 @@ export default function TabLayout() {
       if (!trialStartDate) { return setIsTrial(true) }
       const createdAt = new Date(trialStartDate)
       const now = new Date()
-      const diffMs = now - createdAt
+      const diffMs = now.getTime() - createdAt.getTime()
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
       if (diffDays <= 30) {
         console.log('_layout.tsx: jetting isTrial to true', diffDays)
@@ -90,7 +90,7 @@ export default function TabLayout() {
   }, [segments, isTrial, user, hasSubscription, isPowerDad, videosRemaining, trialStartDate])
 
   return (
-    <ProtectedRoute requireButh={true}>
+    <ProtectedRoute requireAuth={true}>
       <StatusBar style={statusBarStyle} backgroundColor={tabBarBackground} />
       <Tabs
         screenOptions={{
@@ -136,7 +136,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="saythis"
           options={{
-            title: 'Pocket Dad',
+            title: 'Dad Chat',
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="chatbubble-outline" size={size} color={color} />
             ),

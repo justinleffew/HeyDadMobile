@@ -54,29 +54,23 @@ export const useAuth = create<AuthState>()(
         }
       },
       signUp: async (email: string, name = 'Dad') => {
-        set({ isLoading: true });
-
-        try {
-          // Simulate API call - replace with your actual auth service
-          await new Promise(resolve => setTimeout(resolve, 1500));
-
-          // Mock successful registration
-          const mockUser: User = {
-            id: '1',
-            email,
-            name,
-          };
-          set({
-            user: mockUser,
-            isAuthenticated: true,
-            isLoading: false
-          });
-          return true;
-        } catch (error) {
-          set({ isLoading: false });
-          return false;
-        }
-      },
+          set({ isLoading: true });
+          try {
+            const { data, error } = await supabase.auth.signUp({ email, password: '' });
+            if (error) throw error;
+            if (data?.user) {
+              set({
+                user: data.user,
+                isAuthenticated: true,
+                isLoading: false
+              });
+            }
+            return true;
+          } catch (error) {
+            set({ isLoading: false });
+            return false;
+          }
+        },
       signOut: () => {
         supabase.auth.signOut().then(() => {
           set({
@@ -86,15 +80,15 @@ export const useAuth = create<AuthState>()(
           });
         })
       },
-      setHasChild: () => { },
+      setHasChild: (hasChild) => { set({ hasChild }); },
       setTrialStartDate: (trialStartDate) => {
         set({ trialStartDate });
       },
       setHasAccess: (hasAccess) => {
         set({ hasAccess });
       },
-      setHasName: () => { },
-      setVideoCount: (number) => { },
+      setHasName: (hasName) => { set({ hasName }); },
+      setVideoCount: (videoCount) => { set({ videoCount }); },
       setLoading: (loading: boolean) => {
         set({ isLoading: loading });
       },

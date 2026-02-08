@@ -17,9 +17,6 @@ const getTrackColor = (isDark: boolean) => ({ false: isDark ? '#374151' : '#F3F4
 const getThumbColor = (isDark: boolean) => (isDark ? '#f9fafb' : '#ffffff');
 
 const SettingsScreen = () => {
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [childRequests, setChildRequests] = useState(true);
-  const [videoReminders, setVideoReminders] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const router = useRouter();
   const { signOut } = useAuth();
@@ -127,7 +124,7 @@ const SettingsScreen = () => {
       if (error) throw error;
       await supabase.auth.signOut();
       signOut()
-      router.push('(auth)/sign-in');
+      router.replace('/(auth)/sign-in');
     } catch (error) {
       console.error('Error deleting account:', error);
     } finally {
@@ -140,16 +137,17 @@ const SettingsScreen = () => {
       const userEmail = user?.email || '';
       const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || '';
 
-      const { data, error } = await supabase.from('profiles').select('*').limit(1);
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', user!.id).maybeSingle();
       if (error && error.code !== 'PGRST116') {
         throw error;
       }
       if (data) {
         setProfile({
           email: userEmail,
+          full_name: (data as any).full_name || '',
           phone: (data as any).phone || '',
         });
-        const nameParts = (data as any)[0]?.full_name?.split(' ') || [];
+        const nameParts = (data as any).full_name?.split(' ') || [];
         setFirstName(nameParts[0] || '');
         setLastName(nameParts.slice(1).join(' ') || '');
       } else {
@@ -434,6 +432,7 @@ const SettingsScreen = () => {
               placeholder="(xxx) xxx-xxxx"
               className={inputClass}
               placeholderTextColor="#9CA3AF"
+              value={profile.phone}
               onChangeText={handlePhoneChange}
             />
             {fieldErrors.phone ? <Text className="text-red-400 text-xs mt-1">{fieldErrors.phone}</Text> : null}
@@ -530,7 +529,6 @@ const SettingsScreen = () => {
               value={notifications.email_notifications}
               onValueChange={(value) => {
                 setNotifications({ ...notifications, email_notifications: value });
-                setEmailNotifications(value);
               }}
               trackColor={getTrackColor(isDark)}
               thumbColor={getThumbColor(isDark)}
@@ -549,7 +547,6 @@ const SettingsScreen = () => {
               value={notifications.child_requests}
               onValueChange={(value) => {
                 setNotifications({ ...notifications, child_requests: value });
-                setChildRequests(value);
               }}
               trackColor={getTrackColor(isDark)}
               thumbColor={getThumbColor(isDark)}
@@ -568,7 +565,6 @@ const SettingsScreen = () => {
               value={notifications.video_reminders}
               onValueChange={(value) => {
                 setNotifications({ ...notifications, video_reminders: value });
-                setVideoReminders(value);
               }}
               trackColor={getTrackColor(isDark)}
               thumbColor={getThumbColor(isDark)}
@@ -671,20 +667,3 @@ const SettingsScreen = () => {
 };
 
 export default SettingsScreen;
-
-
-<View className="flex-row mt-3 items-center">
-  <TouchableOpacity
-    hitSlop={30}
-    onPress={() => Linking.openURL('https://heydad.pro/terms')}>
-    <Text className="text-white/90 text-xs underline underline-offset-2 decoration-white/40">
-      Terms of Use
-    </Text>
-  </TouchableOpacity>
-  <TouchableOpacity hitSlop={30} style={{ marginLeft: 8 }} onPress={() => Linking.openURL('https://heydad.pro/privacy')}>
-    <Text className="text-white/90 text-xs underline underline-offset-2 decoration-white/40">
-      Privacy Poilcy
-    </Text>
-  </TouchableOpacity>
-
-</View>

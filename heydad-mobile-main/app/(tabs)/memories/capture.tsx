@@ -145,6 +145,7 @@ const RecordLegacyScreen = () => {
     timedProgressRef.current = setInterval(() => {
       setTimedProgress((p) => {
         if (p >= 100) {
+          if (timedProgressRef.current) clearInterval(timedProgressRef.current);
           return 100;
         }
         return p + 1;
@@ -429,12 +430,12 @@ const RecordLegacyScreen = () => {
   };
 
   const startRecording = async () => {
-    if (cameraRef) {
+    if (cameraRef.current) {
       try {
         startTimer();
         const video = await cameraRef?.current?.recordAsync();
         setVideoResult(video)
-        setVideoUri(video.uri)
+        if (video?.uri) setVideoUri(video.uri)
       } catch (error) {
         console.error('Error recording video:', error);
       }
@@ -490,7 +491,7 @@ const RecordLegacyScreen = () => {
   const stopRecording = () => {
     setIsRecording(false)
     clearTimer();
-    if (cameraRef) {
+    if (cameraRef.current) {
       cameraRef?.current?.stopRecording();
     }
   };
@@ -590,8 +591,7 @@ const RecordLegacyScreen = () => {
     return mimeTypes[extension] || 'image/jpeg';
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setFormLoading(true);
     setError("");
     setMessage("");
@@ -923,7 +923,7 @@ const RecordLegacyScreen = () => {
                               key={i}
                               onPress={() => toggleChild(child.id)}
                               className={`items-center ${children.length > 1 && i !== 0 ? "ml-3" : ""}`}>
-                              <Image style={{ borderRadius: "100%" }} source={{ uri: child.image }} className={`bg-gray-800 ${sel ? "border-4 border-amber-400" : ""} w-24 h-24`} />
+                              <Image className={`bg-gray-800 rounded-full ${sel ? "border-4 border-amber-400" : ""} w-24 h-24`} source={{ uri: child.image }} />
                               <Text className={`mt-2 text-lg ${isDark ? "text-gray-100" : "text-slate-600 "} mb-1 font-semibold`}>{child.name}</Text>
                             </TouchableOpacity>
                           }) : null}
@@ -1049,7 +1049,7 @@ const RecordLegacyScreen = () => {
 
                                 <View className="mt-4 flex-row items-center space-x-3 gap-3">
                                   <TouchableOpacity
-                                    style={{ alignItems: 'center', justifyCenter: "center" }}
+                                    style={{ alignItems: 'center', justifyContent: "center" }}
                                     onPress={handleSubmit}
                                     disabled={formLoading}
                                     className={addButtonClass(formLoading)}

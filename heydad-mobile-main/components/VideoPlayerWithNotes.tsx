@@ -7,6 +7,7 @@ import {
   TextInput,
   ScrollView,
   Keyboard,
+  Alert,
 } from "react-native";
 import { Video } from "expo-av";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -67,8 +68,7 @@ const CommentItem = ({
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center gap-2">
             <View
-              style={{ borderRadius: '100%' }}
-              className={`items-center justify-center w-8 h-8 ${avatarBackground}`}
+              className={`items-center justify-center w-8 h-8 rounded-full ${avatarBackground}`}
             >
               <Feather name="user" size={16} color={avatarIconColor} />
             </View>
@@ -205,7 +205,7 @@ export default function EnhancedVideoPlayer({
       setNewComment("");
     } catch (err: any) {
       console.error("Failed to add comment:", err);
-      alert("Failed to add comment: " + err?.message);
+      Alert.alert("Error", "Failed to add comment: " + (err?.message || "Unknown error"));
     }
   };
 
@@ -225,7 +225,7 @@ export default function EnhancedVideoPlayer({
       setReplyTo(null);
     } catch (err: any) {
       console.error("Failed to add reply:", err);
-      alert("Failed to add reply: " + err?.message);
+      Alert.alert("Error", "Failed to add reply: " + (err?.message || "Unknown error"));
     }
   };
 
@@ -325,8 +325,7 @@ export default function EnhancedVideoPlayer({
                       {comments.length === 0 ? (
                         <View className={`pt-4 border rounded-md p-2 py-4 items-center justify-center ${emptyStateBorder}`}>
                           <View
-                            style={{ borderRadius: "100%" }}
-                            className={`${emptyIconBackground} items-center justify-center w-16 h-16`}
+                            className={`${emptyIconBackground} items-center justify-center w-16 h-16 rounded-full`}
                           >
                             <Ionicons name="chatbox-outline" color={emptyIconColor} size={28} />
                           </View>

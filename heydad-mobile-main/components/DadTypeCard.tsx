@@ -85,7 +85,7 @@ export const DadTypeCard: React.FC<DadTypeCardProps> = ({
             <TouchableOpacity
               onPress={onStoryPackPress}
               accessibilityRole="button"
-              className={`my-auto p-3 mt-4 items-center jusitfy-center ${isDark ? "bg-transparent border border-slate-600" : "bg-slate-800"} rounded-full`}>
+              className={`my-auto p-3 mt-4 items-center justify-center ${isDark ? "bg-transparent border border-slate-600" : "bg-slate-800"} rounded-full`}>
               <Text className={`text-white font-medium`}>
                 Get Story Pack
               </Text>

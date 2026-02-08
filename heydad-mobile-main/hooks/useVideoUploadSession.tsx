@@ -16,11 +16,19 @@ const saveVideoLocally = async (videoId: string, videoUri: string, thumbnailUri?
 
   await FileSystem.makeDirectoryAsync(videoDir, { intermediates: true });
 
+  // Actually copy the video file to local storage
+  await FileSystem.copyAsync({ from: videoUri, to: videoPath });
 
-  const videoExists = await FileSystem.getInfoAsync(videoPath);
+  // Copy thumbnail if provided
+  if (thumbnailUri?.uri && thumbnailPath) {
+    try {
+      await FileSystem.copyAsync({ from: thumbnailUri.uri, to: thumbnailPath });
+    } catch (e) {
+      console.log('Thumbnail copy failed:', e);
+    }
+  }
 
-  if (!videoExists) { throw new Error('video path does not exist') }
-  return { videoUri, thumbnailPath: thumbnailUri.uri }
+  return { videoUri: videoPath, thumbnailPath };
 };
 
 const getVideoLocally = async (videoId: string) => {
@@ -95,6 +103,9 @@ export function useVideoUploadSession(videoId: string) {
           data: { session },
         } = await supabase.auth.getSession();
 
+        if (!session?.user?.id) {
+          throw new Error('Not authenticated');
+        }
         const fileName = `${session.user.id}/${Date.now()}${videoExtension}`;
         const videoFileInfo = await FileSystem.getInfoAsync(videoUri);
         if (!videoFileInfo.exists) {
@@ -220,15 +231,11 @@ export function useVideoUploadSession(videoId: string) {
           });
 
           // Handle resumable uploads
-          AsyncStorage.getItem(`tus-url-${videoId}`).then((savedUrl) => {
-            if (savedUrl) {
-              upload.resumeFromPreviousUpload(savedUrl);
+          upload.findPreviousUploads().then((previousUploads) => {
+            if (previousUploads.length > 0) {
+              upload.resumeUpload(previousUploads[0]);
             }
             upload.start();
-
-            if (upload.url) {
-              AsyncStorage.setItem(`tus-url-${videoId}`, upload.url);
-            }
           });
         });
       } catch (err: any) {
@@ -245,14 +252,14 @@ export function useVideoUploadSession(videoId: string) {
       const savedMetadata = await AsyncStorage.getItem(metadataKey);
       const savedVideo = await getVideoLocally(videoId);
 
-      if (savedMetadata && savedVideo && !showRetryModal) {
+      if (savedMetadata && savedVideo) {
         console.log("Found incomplete upload, showing retry modal");
         setShowRetryModal(true);
       }
     } catch (error) {
       console.log("Error checking for resumable upload:", error);
     }
-  }, [videoId, showRetryModal]);
+  }, [videoId, metadataKey]);
 
   const retry = useCallback(
     async (cb?: () => void) => {
@@ -262,10 +269,13 @@ export function useVideoUploadSession(videoId: string) {
 
         if (savedMetadata && savedVideo) {
           console.log("Retrying upload");
+          // Read the video file as a blob-like object for TUS
+          const fileInfo = await FileSystem.getInfoAsync(savedVideo.videoUri);
           await upload(
             savedVideo.videoUri,
             savedVideo.thumbnailUri || '',
             JSON.parse(savedMetadata),
+            fileInfo,
             cb,
           );
         }

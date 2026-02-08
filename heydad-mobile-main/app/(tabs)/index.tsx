@@ -52,7 +52,7 @@ export default function HomeScreen() {
         <Text className={`mt-4 font-merriweather text-xl font-medium text-center ${isDark ? 'text-gray-100' : 'text-slate-600'}`}>
           {title}
         </Text>
-        <Text className={`mt-2 text-center text-base mb-8 leading-6 ${isDark ? 'text-gray-400' : 'text-gray-400'}`}>{text}</Text>
+        <Text className={`mt-2 text-center text-base mb-8 leading-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{text}</Text>
 
         <Link asChild href="/(tabs)/memories/capture">
           <TouchableOpacity className="bg-slate-800 rounded-lg py-4 px-8" activeOpacity={0.8}>
@@ -86,16 +86,18 @@ export default function HomeScreen() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [tab, setTab] = useState<"all" | "audio" | "video" | "note">("audio");
   const [narrations, setNarrations] = useState<Narr[]>([]);
+  const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string | null>>({});
+  const [childAvatars, setChildAvatars] = useState<Record<string, string | null>>({});
+  const [childCounts, setChildCounts] = useState<any[]>([]);
   const router = useRouter()
   const dailyKey = () => new Date().toISOString().slice(0, 10);
 
   const shufflePrompt = () => {
-    const key = `hd.dailyPrompt.${dailyKey()}`;
     const cats = getAllCategories();
     const cat = cats[Math.floor(Math.random() * cats.length)];
     const list = getPromptsByCategory(cat.id);
     const p = list[Math.floor(Math.random() * list.length)];
-    const left = Math.max(0, shufflesLeft - 1);
+    setShufflesLeft((prev) => Math.max(0, prev - 1));
     setPrompt(p);
     setPromptCategory(cat.name);
   };
@@ -117,7 +119,7 @@ export default function HomeScreen() {
       const createdAt = new Date(trialStartDate)
       const endAt = createdAt.setMonth(new Date(trialStartDate).getMonth() + 1)
       const now = new Date()
-      const diffMs = endAt - now
+      const diffMs = endAt - now.getTime()
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
       return diffDays
     }
@@ -209,44 +211,6 @@ export default function HomeScreen() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!user?.id]))
-
-  useEffect(() => {
-    if (!user?.id) return;
-    (async () => {
-      setLoading(true);
-      const [nRes, vRes, kidsRes, countsRes] = await Promise.all([
-        supabase
-          .from("narrations")
-          .select("id,title,notes,image_path,audio_path,duration_seconds,created_at")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false }),
-        fetchVideos(),
-
-        supabase
-          .from("children")
-          .select("id,name,image_path")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: true }),
-        supabase.from("child_memory_counts").select("*").eq("user_id", user.id),
-      ]);
-
-      if (!nRes.error && nRes.data) setNarrations(nRes.data as Narr[]);
-      if (!vRes.error && vRes.data) setVideos(vRes?.data as Vid[]);
-
-      const kids = kidsRes?.data || [];
-      setChildren(kids);
-      buildChildAvatarMap(kids);
-
-      const merged = (countsRes?.data || []).map((r: any) => ({
-        ...r,
-        name: kids.find((k: any) => k.id === r.child_id)?.name || "Child",
-      }));
-      setChildCounts(merged);
-
-      setLoading(false);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
 
   async function buildChildAvatarMap(kids: { id: string; image_path?: string | null }[]) {
     const map: Record<string, string | null> = {};
@@ -391,7 +355,7 @@ export default function HomeScreen() {
 
   const [isModalVisible, setIsModalVisible] = useState(false)
 
-  const { isPowerDad, videosRemaining, hasSubscription, subscriptionInterval, subscriptionType } = useProfileAccess()
+  const { isPowerDad, videosRemaining, hasSubscription, subscriptionInterval } = useProfileAccess()
   const [showGiftModal, setShowGiftModal] = useState(false)
   const [giftCode, setGiftCode] = useState("")
   const [giftCodeStatus, setGiftCodeStatus] = useState("checking");
@@ -416,7 +380,7 @@ export default function HomeScreen() {
     if (user) {
       const createdAt = new Date(user.created_at)
       const now = new Date()
-      const diffMs = now - createdAt
+      const diffMs = now.getTime() - createdAt.getTime()
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
       if (diffDays <= 30) {
         setIsTrial(true)
@@ -501,9 +465,9 @@ export default function HomeScreen() {
                 setShowPricingModal(true)
               }}
               accessibilityRole="button"
-              className="my-auto p-2 px-3 border items-center jusitfy-center bg-[#031329] rounded-full">
+              className="my-auto p-2 px-3 border items-center justify-center bg-[#031329] rounded-full">
               <Text className={`text-white text-xs font-bold`}>
-                {isPowerDad ? subscriptionType === "year" ? "Annual Plan" : "Monthly Plan" : "Get Story Pack"}
+                {isPowerDad ? subscriptionInterval === "year" ? "Annual Plan" : "Monthly Plan" : "Get Story Pack"}
               </Text>
             </TouchableOpacity>
           </LinearGradient>

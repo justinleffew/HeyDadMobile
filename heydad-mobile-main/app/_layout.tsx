@@ -10,13 +10,7 @@ import { ThemeProvider, useTheme } from '../providers/ThemeProvider';
 
 SplashScreen.preventAutoHideAsync();
 
-AppState.addEventListener('change', (state) => {
-  if (state === 'active') {
-    supabase.auth.startAutoRefresh();
-  } else {
-    supabase.auth.stopAutoRefresh();
-  }
-});
+// AppState listener moved inside RootLayoutNav component
 
 
 
@@ -27,6 +21,17 @@ const RootLayoutNav = () => {
     merriweatherSemibold: Merriweather_600SemiBold,
     merriweatherBold: Merriweather_700Bold,
   });
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        supabase.auth.startAutoRefresh();
+      } else {
+        supabase.auth.stopAutoRefresh();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     if (error) throw error;

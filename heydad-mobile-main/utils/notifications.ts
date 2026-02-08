@@ -161,18 +161,21 @@ export async function scheduleWeeklyPrompt() {
 }
 
 export async function registerPushTokenForUser(id: string) {
-  const { data: tokenData } = await Notifications.getExpoPushTokenAsync();
-  const expoPushToken = tokenData?.data;
-  console.log('Push token', tokenData)
+  try {
+    const tokenData = await Notifications.getExpoPushTokenAsync();
+    const expoPushToken = tokenData?.data;
 
-  if (!expoPushToken) return;
+    if (!expoPushToken) return;
 
-  await supabase
-    .from("profiles")
-    .upsert({
-      id,
-      expo_push_token: expoPushToken,
-    }, { onConflict: "id" });
+    await supabase
+      .from("profiles")
+      .upsert({
+        id,
+        expo_push_token: expoPushToken,
+      }, { onConflict: "id" });
+  } catch (error) {
+    console.error('Error registering push token:', error);
+  }
 }
 
 

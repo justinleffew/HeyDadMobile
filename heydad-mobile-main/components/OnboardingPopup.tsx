@@ -37,7 +37,7 @@ export default function OnboardingPopup() {
     setMinimized(true);
     if (!hasName) return router.replace("/(tabs)/settings");
     if (!hasChild) return router.replace("/(tabs)/children");
-    if (!videoCount) return router.replace("/(tabs)/memories/capture");
+    if (videoCount === 0) return router.replace("/(tabs)/memories/capture");
     if (!hasAccess) return router.replace("/(tabs)/settings");
   };
 
@@ -163,7 +163,7 @@ export default function OnboardingPopup() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  onPress={() => navigateToStep("(tabs)/children")}
+                  onPress={() => navigateToStep("/(tabs)/children")}
                   className={`bg-[#191b27] border-2 rounded-lg p-4 flex-row items-center ${hasChild ? "border-[#c59a5f]" : "border-slate-800"
                     }`}
                 >
@@ -182,7 +182,7 @@ export default function OnboardingPopup() {
                   onPress={() => {
                     setDismissed(true);
                     persistDismissal();
-                    router.push("/record");
+                    router.push("/(tabs)/memories/capture");
                   }}
                   className={`bg-[#191b27] border-2 rounded-lg p-4 flex-row items-center ${videoCount ? "border-[#c59a5f]" : "border-slate-800"
                     }`}
@@ -191,9 +191,9 @@ export default function OnboardingPopup() {
                     className={`w-5 h-5 rounded-full border-2 border-[#c59a5f] items-center justify-center mr-2 ${videoCount ? "bg-[#c59a5f]" : "bg-transparent"
                       }`}
                   >
-                    {videoCount && (
+                    {videoCount ? (
                       <Text className="text-black text-xs font-bold">✓</Text>
-                    )}
+                    ) : null}
                   </View>
                   <Text className="ml-2 text-white text-sm">Create your first video</Text>
                 </TouchableOpacity>
