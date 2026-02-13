@@ -5,7 +5,6 @@ import { useEffect, useState, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { Link, useRouter } from 'expo-router';
 import { useAuth } from 'hooks/useAuth';
-import TryThisCard from 'components/TryThisCard';
 import AudioPlayer from 'components/AudioPlayer';
 import PocketDadCard from 'components/PocketDadCard';
 import { getAllCategories } from 'constants';
@@ -18,6 +17,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useProfileAccess } from 'hooks/useProfileAccess';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PricingModal from 'components/PricingModal';
+import PromptCards from 'components/PromptCards';
+import QuickRecordFAB from 'components/QuickRecordFAB';
+import FirstRecordingNudge from 'components/FirstRecordingNudge';
 
 export default function HomeScreen() {
 
@@ -66,9 +68,7 @@ export default function HomeScreen() {
     );
   };
 
-  const [prompt, setPrompt] = useState<string>("");
-  const [shufflesLeft, setShufflesLeft] = useState<number>(5);
-  const [promptCategory, setPromptCategory] = useState<string>("");
+  const [showFirstRecordingNudge, setShowFirstRecordingNudge] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [loading, setLoading] = useState(true)
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -90,26 +90,20 @@ export default function HomeScreen() {
   const [childAvatars, setChildAvatars] = useState<Record<string, string | null>>({});
   const [childCounts, setChildCounts] = useState<any[]>([]);
   const router = useRouter()
-  const dailyKey = () => new Date().toISOString().slice(0, 10);
 
-  const shufflePrompt = () => {
-    const cats = getAllCategories();
-    const cat = cats[Math.floor(Math.random() * cats.length)];
-    const list = getPromptsByCategory(cat.id);
-    const p = list[Math.floor(Math.random() * list.length)];
-    setShufflesLeft((prev) => Math.max(0, prev - 1));
-    setPrompt(p);
-    setPromptCategory(cat.name);
-  };
-
+  // Check if this is a brand new dad who hasn't recorded yet
   useEffect(() => {
-    const cats = getAllCategories();
-    const cat = cats[Math.floor(Math.random() * cats.length)];
-    const list = getPromptsByCategory(cat.id);
-    const p = list[Math.floor(Math.random() * list.length)];
-    setPrompt(p);
-    setPromptCategory(cat.name);
-    setShufflesLeft(5);
+    (async () => {
+      try {
+        const hasSeenNudge = await AsyncStorage.getItem('hd.firstRecordingNudgeSeen');
+        if (!hasSeenNudge) {
+          // Delay slightly so the home screen renders first
+          setTimeout(() => setShowFirstRecordingNudge(true), 1500);
+        }
+      } catch (e) {
+        // Ignore — don't block on this
+      }
+    })();
   }, [])
 
   const { user, trialStartDate, showPricingModal, setShowPricingModal } = useAuth()
@@ -419,7 +413,7 @@ export default function HomeScreen() {
             className={`text-3xl font-merriweather ${isDark ? "text-gray-100" : "text-slate-800 "} mb-2`}>Home</Text>
 
           <Text className="text-gray-400 mb-6 leading-5 font-semibold">
-            Record something now. Talk about a photo, add a quick note, or record a video
+            Your kids will love hearing your voice. Pick a prompt or just hit record.
           </Text>
         </View>
 
@@ -472,14 +466,12 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </LinearGradient>
 
-          <TryThisCard
-            prompt={prompt}
-            shufflePrompt={shufflePrompt}
-            onRecord={() => router.replace({
+          <PromptCards
+            onRecord={(promptText) => router.replace({
               pathname: "(tabs)/memories/capture",
               params: {
                 defaultTab: 'audio',
-                selectedPrompt: prompt
+                selectedPrompt: promptText
               }
             })}
             onBrowseAll={() => router.replace('/(tabs)/memories/ideas')}
@@ -619,6 +611,32 @@ export default function HomeScreen() {
 
         </View>
       </ScrollView>
+
+      <QuickRecordFAB
+        onPress={() => router.replace({
+          pathname: "(tabs)/memories/capture",
+          params: { defaultTab: 'audio' }
+        })}
+      />
+
+      <FirstRecordingNudge
+        visible={showFirstRecordingNudge}
+        onRecord={(promptText) => {
+          setShowFirstRecordingNudge(false);
+          AsyncStorage.setItem('hd.firstRecordingNudgeSeen', '1').catch(() => {});
+          router.replace({
+            pathname: "(tabs)/memories/capture",
+            params: {
+              defaultTab: 'audio',
+              selectedPrompt: promptText
+            }
+          });
+        }}
+        onDismiss={() => {
+          setShowFirstRecordingNudge(false);
+          AsyncStorage.setItem('hd.firstRecordingNudgeSeen', '1').catch(() => {});
+        }}
+      />
 
       <PricingModal
         showModalRepeatedly={showModalRepeatedly}
