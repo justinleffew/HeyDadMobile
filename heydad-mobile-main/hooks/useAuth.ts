@@ -15,7 +15,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   signIn: (user: User) => boolean;
-  signUp: (email: string, name?: string) => Promise<boolean>;
+  syncFromSession: () => Promise<boolean>;
   signOut: () => void;
   setLoading: (loading: boolean) => void;
   setShowPricingModal: (loading: boolean) => void;
@@ -53,24 +53,24 @@ export const useAuth = create<AuthState>()(
           return false;
         }
       },
-      signUp: async (email: string, name = 'Dad') => {
-          set({ isLoading: true });
-          try {
-            const { data, error } = await supabase.auth.signUp({ email, password: '' });
-            if (error) throw error;
-            if (data?.user) {
-              set({
-                user: data.user,
-                isAuthenticated: true,
-                isLoading: false
-              });
-            }
-            return true;
-          } catch (error) {
-            set({ isLoading: false });
+      syncFromSession: async () => {
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+
+          if (!session?.user) {
+            set({ user: null, isAuthenticated: false, isLoading: false });
             return false;
           }
-        },
+
+          set({ user: session.user, isAuthenticated: true, isLoading: false });
+          return true;
+        } catch {
+          set({ user: null, isAuthenticated: false, isLoading: false });
+          return false;
+        }
+      },
       signOut: () => {
         supabase.auth.signOut().then(() => {
           set({

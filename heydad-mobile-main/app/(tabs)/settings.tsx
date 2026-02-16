@@ -81,6 +81,58 @@ const SettingsScreen = () => {
     }
   };
 
+  const validatePhoneBeforeSave = () => {
+    if (profile.phone && !validatePhone(profile.phone)) {
+      setFieldErrors((prev) => ({ ...prev, phone: 'Please enter a valid phone number' }));
+      return false;
+    }
+
+    setFieldErrors((prev) => ({ ...prev, phone: '' }));
+    return true;
+  };
+
+  const listAllFiles = async (bucket: string, prefix: string) => {
+    const allFiles: string[] = [];
+    const pageSize = 100;
+    let offset = 0;
+
+    while (true) {
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .list(prefix, { limit: pageSize, offset, sortBy: { column: 'name', order: 'asc' } });
+
+      if (error) {
+        console.warn(`Error listing files for ${bucket}:`, error);
+        break;
+      }
+
+      const files = (data || []).filter((item: any) => !!item.name).map((item: any) => `${prefix}/${item.name}`);
+      allFiles.push(...files);
+
+      if (!data || data.length < pageSize) {
+        break;
+      }
+
+      offset += pageSize;
+    }
+
+    return allFiles;
+  };
+
+  const removeFilesInBatches = async (bucket: string, paths: string[]) => {
+    const batchSize = 100;
+
+    for (let i = 0; i < paths.length; i += batchSize) {
+      const batch = paths.slice(i, i + batchSize);
+      if (!batch.length) continue;
+
+      const { error } = await supabase.storage.from(bucket).remove(batch);
+      if (error) {
+        console.warn(`Error deleting files from ${bucket}:`, error);
+      }
+    }
+  };
+
   const handleCancelSubscription = async () => {
     try {
       const { data, error: subscriptionError } = await supabase
@@ -103,27 +155,25 @@ const SettingsScreen = () => {
   const handleDeleteAccount = async () => {
     try {
       setLoading(true);
-      const { data: files, error: listError } = await supabase.storage
-        .from('videos')
-        .list(user!.id, { limit: 1000, sortBy: { column: 'name', order: 'asc' } });
 
-      if (listError) console.warn('Error listing files:', listError);
+      const storageBuckets = ['videos', 'narrations', 'child-images'];
 
-      if (files && (files as any).length > 0) {
-        const filePaths = (files as any).map((file: any) => `${user!.id}/${file.name}`);
-        const { error: deleteFilesError } = await supabase.storage
-          .from('videos')
-          .remove(filePaths);
-        if (deleteFilesError) console.warn('Error deleting files:', deleteFilesError);
+      for (const bucket of storageBuckets) {
+        const filePaths = await listAllFiles(bucket, user!.id);
+        if (filePaths.length > 0) {
+          await removeFilesInBatches(bucket, filePaths);
+        }
       }
 
       if (isPowerDad) {
         await handleCancelSubscription();
       }
+
       const { error } = await supabase.rpc('delete_user');
       if (error) throw error;
+
       await supabase.auth.signOut();
-      signOut()
+      signOut();
       router.replace('/(auth)/sign-in');
     } catch (error) {
       console.error('Error deleting account:', error);
@@ -180,21 +230,44 @@ const SettingsScreen = () => {
   };
 
   const changePassword = async () => {
+    if (!user?.email) {
+      setMessage('Unable to verify your account right now. Please sign in again.');
+      return;
+    }
+
+    if (!passwordData.currentPassword) {
+      setMessage('Current password is required.');
+      return;
+    }
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       setMessage('New passwords do not match.');
       return;
     }
-    if (passwordData.newPassword.length < 6) {
-      setMessage('New password must be at least 6 characters long.');
+
+    if (passwordData.newPassword.length < 8) {
+      setMessage('New password must be at least 8 characters long.');
       return;
     }
+
     setLoading(true);
     setMessage('');
     try {
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: passwordData.currentPassword,
+      });
+
+      if (reauthError) {
+        setMessage('Current password is incorrect.');
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: passwordData.newPassword,
       });
       if (error) throw error;
+
       setMessage('Password changed successfully!');
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error) {
@@ -263,27 +336,24 @@ const SettingsScreen = () => {
 
   const saveNotificationSettings = async () => {
     setMessage('');
-    try {
-      if (profile.phone && !validatePhone(profile.phone)) {
-        setFieldErrors({ ...fieldErrors, phone: 'Please enter a valid phone number' });
-        return;
-      }
-      const { error } = await supabase.from('user_settings').upsert(
-        {
-          user_id: user!.id,
-          ...notifications,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      );
-      if (error) throw error;
-    } catch (error) {
-      throw error;
-    }
+    const { error } = await supabase.from('user_settings').upsert(
+      {
+        user_id: user!.id,
+        ...notifications,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    );
+
+    if (error) throw error;
   };
 
   const saveAllSettings = async () => {
     try {
+      if (!validatePhoneBeforeSave()) {
+        return;
+      }
+
       setLoading(true);
       await Promise.all([saveNotificationSettings(), saveProfile()]);
     } catch (error) {
@@ -500,9 +570,9 @@ const SettingsScreen = () => {
             </View>
 
             <TouchableOpacity
-              disabled={loading || !!passwordError}
+              disabled={loading || !!passwordError || !passwordData.currentPassword || !passwordData.newPassword || passwordData.newPassword.length < 8 || !passwordData.confirmPassword}
               onPress={changePassword}
-              className={`bg-green-600 rounded-lg py-3 px-4 flex-row items-center justify-center ${loading || !!passwordError ? 'opacity-80' : ''
+              className={`bg-green-600 rounded-lg py-3 px-4 flex-row items-center justify-center ${loading || !!passwordError || !passwordData.currentPassword || !passwordData.newPassword || passwordData.newPassword.length < 8 || !passwordData.confirmPassword ? 'opacity-80' : ''
                 }`}
             >
               <Feather name="save" size={18} color="white" />

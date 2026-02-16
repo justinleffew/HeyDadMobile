@@ -210,7 +210,7 @@ export default function HomeScreen() {
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!user?.id]))
+  }, [user?.id]))
 
   async function buildChildAvatarMap(kids: { id: string; image_path?: string | null }[]) {
     const map: Record<string, string | null> = {};

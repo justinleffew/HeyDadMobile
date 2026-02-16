@@ -5,7 +5,6 @@ import { supabase } from "./supabase";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    // Avoid showing alerts when the app is in the foreground.
     shouldShowAlert: false,
     shouldPlaySound: false,
     shouldSetBadge: false,
@@ -49,45 +48,68 @@ const KIDS_PERSPECTIVE = [
   "Hey Dad, just talk to me today — about anything.",
 ];
 
-// Keys for AsyncStorage so we remember what we sent last and if we've scheduled
-const LAST_CATEGORY_KEY = "heydad:lastCategory"; // "funny" | "kid"
+const LAST_CATEGORY_KEY = "heydad:lastCategory";
 const WEEKLY_NOTIFICATION_ID_KEY = "heydad:weeklyNotificationId";
+const WEEKLY_NOTIFICATION_SCHEDULED_FOR_KEY = "heydad:weeklyNotificationScheduledFor";
 
-// Helper to pick which bucket to use this week and return a random message
 async function pickWeeklyMessage(): Promise<{ title: string; body: string; category: "funny" | "kid" }> {
-  // read last category
   const last = await AsyncStorage.getItem(LAST_CATEGORY_KEY);
-
-  // alternate: if last was funny -> do kid. else do funny.
   const nextCategory = last === "funny" ? "kid" : "funny";
 
-  let pool: string[];
-  let title: string;
-
   if (nextCategory === "funny") {
-    pool = FUNNY_SNARKY_TIME_BASED;
-    title = "Hey Dad 👀";
-  } else {
-    pool = KIDS_PERSPECTIVE;
-    title = "Your kid wants to know 💬";
+    const body = FUNNY_SNARKY_TIME_BASED[Math.floor(Math.random() * FUNNY_SNARKY_TIME_BASED.length)];
+    return { title: "Hey Dad 👀", body, category: "funny" };
   }
 
-  // pick random message from that pool
-  const body = pool[Math.floor(Math.random() * pool.length)];
+  const body = KIDS_PERSPECTIVE[Math.floor(Math.random() * KIDS_PERSPECTIVE.length)];
+  return { title: "Your kid wants to know 💬", body, category: "kid" };
+}
 
-  return { title, body, category: nextCategory };
+const getNextSundayAt8Pm = () => {
+  const now = new Date();
+  const next = new Date(now.getTime());
+  const daysUntilSunday = (7 - now.getDay()) % 7;
+
+  next.setDate(now.getDate() + daysUntilSunday);
+  next.setHours(20, 0, 0, 0);
+
+  if (next <= now) {
+    next.setDate(next.getDate() + 7);
+  }
+
+  return next;
+};
+
+async function getValidScheduledWeeklyNotificationId(): Promise<string | null> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const storedId = await AsyncStorage.getItem(WEEKLY_NOTIFICATION_ID_KEY);
+  const scheduledFor = await AsyncStorage.getItem(WEEKLY_NOTIFICATION_SCHEDULED_FOR_KEY);
+
+  if (!storedId || !scheduledFor) {
+    return null;
+  }
+
+  const scheduledDate = new Date(scheduledFor);
+  const stillScheduled = scheduled.some((n) => n.identifier === storedId);
+
+  if (stillScheduled && scheduledDate > new Date()) {
+    return storedId;
+  }
+
+  await AsyncStorage.multiRemove([WEEKLY_NOTIFICATION_ID_KEY, WEEKLY_NOTIFICATION_SCHEDULED_FOR_KEY]);
+  return null;
 }
 
 export async function initNotifications() {
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
+
   if (existingStatus !== "granted") {
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
   }
 
   if (finalStatus !== "granted") {
-    console.log("Notification permission not granted");
     return false;
   }
 
@@ -103,39 +125,19 @@ export async function initNotifications() {
   return true;
 }
 
-async function getScheduledWeeklyNotificationId(): Promise<string | null> {
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  const storedId = await AsyncStorage.getItem(WEEKLY_NOTIFICATION_ID_KEY);
-
-  if (storedId) {
-    const stillScheduled = scheduled.some((n) => n.identifier === storedId);
-    if (stillScheduled) return storedId;
-
-    await AsyncStorage.removeItem(WEEKLY_NOTIFICATION_ID_KEY);
-  }
-
-  const existingWeekly = scheduled.find(
-    (n) =>
-      n.content?.title === "Hey Dad 👀" ||
-      n.content?.title === "Your kid wants to know 💬"
-  );
-
-  if (existingWeekly?.identifier) {
-    await AsyncStorage.setItem(WEEKLY_NOTIFICATION_ID_KEY, existingWeekly.identifier);
-    return existingWeekly.identifier;
-  }
-
-  return null;
-}
-
 export async function scheduleWeeklyPrompt() {
-  const existingId = await getScheduledWeeklyNotificationId();
+  const existingId = await getValidScheduledWeeklyNotificationId();
   if (existingId) {
-    console.log("Weekly reminder already scheduled with id:", existingId);
     return existingId;
   }
 
+  const staleId = await AsyncStorage.getItem(WEEKLY_NOTIFICATION_ID_KEY);
+  if (staleId) {
+    await Notifications.cancelScheduledNotificationAsync(staleId).catch(() => null);
+  }
+
   const { title, body, category } = await pickWeeklyMessage();
+  const triggerDate = getNextSundayAt8Pm();
 
   await AsyncStorage.setItem(LAST_CATEGORY_KEY, category);
 
@@ -146,17 +148,16 @@ export async function scheduleWeeklyPrompt() {
       sound: true,
     },
     trigger: {
-      weekday: 1,      // 1 = Sunday on iOS. Android ignores weekday in some cases.
-      hour: 20,
-      minute: 0,
-      repeats: true,
+      date: triggerDate,
       channelId: Platform.OS === "android" ? "heydad-default" : undefined,
-    } as any,
+    },
   });
 
-  await AsyncStorage.setItem(WEEKLY_NOTIFICATION_ID_KEY, identifier);
+  await AsyncStorage.multiSet([
+    [WEEKLY_NOTIFICATION_ID_KEY, identifier],
+    [WEEKLY_NOTIFICATION_SCHEDULED_FOR_KEY, triggerDate.toISOString()],
+  ]);
 
-  console.log("Scheduled weekly reminder with id:", identifier);
   return identifier;
 }
 
@@ -169,21 +170,23 @@ export async function registerPushTokenForUser(id: string) {
 
     await supabase
       .from("profiles")
-      .upsert({
-        id,
-        expo_push_token: expoPushToken,
-      }, { onConflict: "id" });
+      .upsert(
+        {
+          id,
+          expo_push_token: expoPushToken,
+        },
+        { onConflict: "id" }
+      );
   } catch (error) {
     console.error('Error registering push token:', error);
   }
 }
 
-
 export async function markUserActive(id: string) {
   await supabase
     .from("profiles")
     .update({
-      last_activity_at: new Date().toISOString()
+      last_activity_at: new Date().toISOString(),
     })
     .eq("id", id);
 }

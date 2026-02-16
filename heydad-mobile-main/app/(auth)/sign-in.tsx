@@ -22,7 +22,7 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, syncFromSession } = useAuth();
   const { colorScheme } = useTheme();
   const isDark = colorScheme === 'dark';
 
@@ -66,8 +66,10 @@ export default function SignInScreen() {
 
       const user = await signInWithEmail();
       if (user) {
-        setIsLoading(false);
-        signIn(user);
+        const synced = await syncFromSession();
+        if (!synced) {
+          signIn(user);
+        }
       }
     } catch (error) {
       console.log(error);
@@ -81,9 +83,16 @@ export default function SignInScreen() {
       await GoogleSignin.hasPlayServices();
       const userInfo = await GoogleSignin.signIn();
       const { data, error } = await supabase.auth.signInWithIdToken({ provider: 'google', token: userInfo.data?.idToken || '', })
-        if (!error && data?.user) {
+      if (error) {
+        throw error;
+      }
+
+      if (data?.user) {
+        const synced = await syncFromSession();
+        if (!synced) {
           signIn(data.user);
         }
+      }
     } catch (error) {
       console.error('Google Sign-In Error:', error);
     }
@@ -243,7 +252,12 @@ export default function SignInScreen() {
                             }
                           })
                         }
-                        user && signIn(user);
+                        if (user) {
+                          const synced = await syncFromSession();
+                          if (!synced) {
+                            signIn(user);
+                          }
+                        }
                         // User is signed in.
                       }
                     } else {
@@ -266,14 +280,7 @@ export default function SignInScreen() {
               className="mt-2 w-full py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl flex-row justify-center items-center mb-8"
               activeOpacity={0.7}
             >
-              <View className="w-5 h-5 mr-3">
-                <Image
-                  className="w-5 h-5"
-                  source={{
-                    uri: 'https://image.similarpng.com/file/similarpng/very-thumbnail/2020/06/Logo-google-icon-PNG.png',
-                  }}
-                />
-              </View>
+              <Ionicons name="logo-google" size={20} color={isDark ? '#e2e8f0' : '#334155'} style={{ marginRight: 12 }} />
               <Text className="text-slate-700 dark:text-slate-200 font-medium text-base">
                 Continue with Google
               </Text>
