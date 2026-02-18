@@ -166,7 +166,7 @@ const Ideas = () => {
     router.replace({
       pathname: "(tabs)/memories/capture",
       params: {
-        defaultTab: params?.tab || 'audio',
+        defaultTab: params?.tab || 'video',
         selectedPrompt: prompt
       }
     })

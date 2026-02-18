@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Dimensions, Platform, View, Linking, Modal, Image, Text, TouchableOpacity, TextInput, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { Animated, Dimensions, Platform, View, Linking, Modal, Image, Text, TouchableOpacity, TextInput, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Crypto from "expo-crypto";
@@ -11,6 +11,7 @@ import * as ImagePicker from "expo-image-picker";
 import { supabase } from "utils/supabase";
 import { useAuth } from "hooks/useAuth";
 import { useTheme } from "providers/ThemeProvider";
+import { useRouter } from "expo-router";
 import UploadWaitScreen from "./UploadWaitScreen";
 
 type Child = { id: string; name: string };
@@ -124,11 +125,83 @@ const ImageNarration: React.FC<Props> = ({
     setSuccessMessage("");
   };
 
+  // Pre-select first child on mount
   useEffect(() => {
-    if (children.length === 1) {
+    if (children.length > 0 && selectedChildren.length === 0) {
       setSelectedChildren([children[0].id])
     }
   }, [children])
+
+  // Pulse animation for mic button
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const pulseOpacity = useRef(new Animated.Value(0.4)).current;
+  const [micPulseRunning, setMicPulseRunning] = useState(false);
+
+  // Child scale animations
+  const childScaleAnims = useRef<{ [key: string]: Animated.Value }>({}).current;
+  const getChildScale = (id: string) => {
+    if (!childScaleAnims[id]) {
+      childScaleAnims[id] = new Animated.Value(1);
+    }
+    return childScaleAnims[id];
+  };
+
+  // Title input focus state
+  const [titleFocused, setTitleFocused] = useState(false);
+
+  // Start/stop mic pulse animation based on recording state
+  useEffect(() => {
+    if (!isRecording && !audioUri && !micPulseRunning) {
+      // Idle state: pulse gold ring
+      setMicPulseRunning(true);
+      Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(pulseAnim, { toValue: 1.15, duration: 1000, useNativeDriver: true }),
+            Animated.timing(pulseOpacity, { toValue: 0, duration: 1000, useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(pulseAnim, { toValue: 1, duration: 0, useNativeDriver: true }),
+            Animated.timing(pulseOpacity, { toValue: 0.4, duration: 0, useNativeDriver: true }),
+          ]),
+        ])
+      ).start();
+    }
+    if (isRecording || audioUri) {
+      // Stop pulse when recording or when audio exists
+      pulseAnim.stopAnimation();
+      pulseOpacity.stopAnimation();
+      pulseAnim.setValue(1);
+      pulseOpacity.setValue(0);
+      setMicPulseRunning(false);
+    }
+  }, [isRecording, audioUri]);
+
+  // Recording ring pulse (red, faster)
+  const recordPulse = useRef(new Animated.Value(1)).current;
+  const recordPulseOpacity = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    if (isRecording) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(recordPulse, { toValue: 1.15, duration: 500, useNativeDriver: true }),
+            Animated.timing(recordPulseOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(recordPulse, { toValue: 1, duration: 0, useNativeDriver: true }),
+            Animated.timing(recordPulseOpacity, { toValue: 0.5, duration: 0, useNativeDriver: true }),
+          ]),
+        ])
+      ).start();
+    } else {
+      recordPulse.stopAnimation();
+      recordPulseOpacity.stopAnimation();
+      recordPulse.setValue(1);
+      recordPulseOpacity.setValue(0);
+    }
+  }, [isRecording]);
 
   const fetchChildren = async () => {
     if (user) {
@@ -363,6 +436,7 @@ const ImageNarration: React.FC<Props> = ({
     }
   };
 
+  const router = useRouter();
   const { colorScheme } = useTheme();
   const isDark = colorScheme === 'dark';
 
@@ -530,7 +604,16 @@ const ImageNarration: React.FC<Props> = ({
   };
 
   const toggleChild = (id: string) => {
+    const willSelect = !selectedChildren.includes(id);
     setSelectedChildren((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    // Spring scale animation on select
+    if (willSelect) {
+      const scaleVal = getChildScale(id);
+      Animated.sequence([
+        Animated.spring(scaleVal, { toValue: 1.08, useNativeDriver: true, speed: 20, bounciness: 12 }),
+        Animated.spring(scaleVal, { toValue: 1.0, useNativeDriver: true, speed: 20, bounciness: 8 }),
+      ]).start();
+    }
   };
 
   const UnlockSelector = () => {
@@ -810,13 +893,19 @@ const ImageNarration: React.FC<Props> = ({
               <View className="flex-wrap flex-row items-center justify-center">
                 {!childrenLoading && children.length ? children.map((child, i) => {
                   const sel = selectedChildren.includes(child.id);
-                  return <TouchableOpacity
-                    key={i}
-                    onPress={() => toggleChild(child.id)}
-                    className={`items-center ${children.length > 1 && i !== 0 ? "ml-3" : ""}`}>
-                    <Image className={`bg-gray-800 rounded-full ${sel ? "border-4 border-amber-400" : ""} w-24 h-24`} source={{ uri: child.image }} />
-                    <Text className={`mt-2 text-lg ${isDark ? "text-gray-100" : "text-slate-600 "} mb-1 font-semibold`}>{child.name}</Text>
-                  </TouchableOpacity>
+                  const scaleVal = getChildScale(child.id);
+                  return (
+                    <Animated.View key={i} style={{ transform: [{ scale: scaleVal }], opacity: sel ? 1 : 0.5 }}>
+                      <TouchableOpacity
+                        onPress={() => toggleChild(child.id)}
+                        className={`items-center ${children.length > 1 && i !== 0 ? "ml-3" : ""}`}>
+                        <View style={sel ? { borderWidth: 3, borderColor: '#D4A853', borderRadius: 999, padding: 2 } : { borderWidth: 3, borderColor: 'transparent', borderRadius: 999, padding: 2 }}>
+                          <Image className="bg-gray-800 rounded-full w-24 h-24" source={{ uri: child.image }} />
+                        </View>
+                        <Text style={{ marginTop: 8, fontSize: 16, fontWeight: '600', color: sel ? (isDark ? '#f3f4f6' : '#1B2838') : (isDark ? '#9CA3AF' : '#94a3b8') }}>{child.name}</Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  );
                 }) : null}
 
                 {!children.length && childrenLoading ?
@@ -850,16 +939,38 @@ const ImageNarration: React.FC<Props> = ({
             {children.length ?
               <>
                 <TextInput
-                  className={`w-full rounded-lg border px-3 py-3 ${isDark ? "text-gray-100 border-slate-500" : "border-slate-300 text-slate-700 "}`}
+                  style={{
+                    width: '100%',
+                    paddingHorizontal: 12,
+                    paddingVertical: 12,
+                    fontSize: 16,
+                    color: isDark ? '#f3f4f6' : '#1B2838',
+                    backgroundColor: isDark ? '#1f2937' : '#FAFAF8',
+                    borderWidth: 0,
+                    borderBottomWidth: titleFocused ? 2 : 1,
+                    borderBottomColor: titleFocused ? '#D4A853' : (isDark ? '#4b5563' : '#d1cdc6'),
+                    borderRadius: 0,
+                  }}
                   value={title}
                   onChangeText={setTitle}
-                  placeholder="Give your story a title"
-                  placeholderTextColor="#94a3b8"
+                  placeholder="e.g. First Day of Kindergarten"
+                  placeholderTextColor={isDark ? '#6b7280' : '#94a3b8'}
+                  onFocus={() => setTitleFocused(true)}
+                  onBlur={() => setTitleFocused(false)}
                 />
-                <Text className={`mt-2 text-sm ${isDark ? "text-gray-100" : "text-slate-600 "} mb-2 font-semibold`}>
-                  e.g. First Day of Kindergarten
-                </Text>
-
+                <TouchableOpacity
+                  onPress={() => {
+                    router.replace({
+                      pathname: "/(tabs)/memories/ideas",
+                      params: { tab: tab }
+                    })
+                  }}
+                  style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', marginTop: 10, marginBottom: 4 }}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons name="lightbulb-on-outline" size={14} color="#D4A853" />
+                  <Text style={{ marginLeft: 4, fontSize: 13, color: '#D4A853', fontWeight: '600' }}>Need ideas?</Text>
+                </TouchableOpacity>
               </>
               : null}
           </View>
@@ -869,19 +980,62 @@ const ImageNarration: React.FC<Props> = ({
           {/* Audio */}
           <View className="mt-3 items-center gap-3">
             {(!isAudioNote && children.length && !audioUri) ? (
-              <View className="mb-6 mt-4">
-                <TouchableOpacity
-                  onPress={isRecording ? stopRecording : startRecording}
-                  accessibilityLabel="Start narration recording"
-                  className="w-20 h-20 rounded-full bg-slate-800 items-center justify-center shadow-lg">
-                  <Ionicons
-                    name={isRecording ? "pause" : "mic"}
-                    size={28}
-                    color="#fff"
-                  />
-
-                </TouchableOpacity>
-                <Text className={`mt-3 text-center ${isDark ? "text-gray-100" : "text-slate-600"} font-semibold`}>{fmt(durationSec)} / 2:00</Text>
+              <View style={{ marginBottom: 24, marginTop: 16, alignItems: 'center' }}>
+                <View style={{ width: 96, height: 96, alignItems: 'center', justifyContent: 'center' }}>
+                  {/* Pulsing ring — gold when idle, red when recording */}
+                  {!isRecording && (
+                    <Animated.View style={{
+                      position: 'absolute',
+                      width: 88,
+                      height: 88,
+                      borderRadius: 44,
+                      borderWidth: 3,
+                      borderColor: '#D4A853',
+                      transform: [{ scale: pulseAnim }],
+                      opacity: pulseOpacity,
+                    }} />
+                  )}
+                  {isRecording && (
+                    <Animated.View style={{
+                      position: 'absolute',
+                      width: 88,
+                      height: 88,
+                      borderRadius: 44,
+                      borderWidth: 3,
+                      borderColor: '#E74C3C',
+                      transform: [{ scale: recordPulse }],
+                      opacity: recordPulseOpacity,
+                    }} />
+                  )}
+                  <TouchableOpacity
+                    onPress={isRecording ? stopRecording : startRecording}
+                    accessibilityLabel={isRecording ? "Stop recording" : "Start narration recording"}
+                    style={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: 40,
+                      backgroundColor: isRecording ? '#E74C3C' : '#1B2838',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.2,
+                      shadowRadius: 6,
+                      elevation: 4,
+                    }}>
+                    <Ionicons
+                      name={isRecording ? "pause" : "mic"}
+                      size={28}
+                      color="#fff"
+                    />
+                  </TouchableOpacity>
+                </View>
+                <Text style={{ marginTop: 12, textAlign: 'center', fontSize: 15, fontWeight: '600', color: isDark ? '#f3f4f6' : '#1B2838' }}>
+                  {fmt(durationSec)} / 2:00
+                </Text>
+                <Text style={{ marginTop: 4, textAlign: 'center', fontSize: 13, color: isRecording ? '#E74C3C' : (isDark ? '#6b7280' : '#94a3b8') }}>
+                  {isRecording ? 'Recording...' : 'Tap to start recording'}
+                </Text>
               </View>) : null}
 
 

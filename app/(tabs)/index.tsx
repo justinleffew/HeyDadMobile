@@ -1,5 +1,5 @@
-import { useCallback } from 'react'
-import { Image, View, Text, TouchableOpacity, ScrollView, FlatList as RNFlatList, StatusBar, Modal, ActivityIndicator, Alert, Dimensions } from 'react-native';
+import { useCallback, useRef } from 'react'
+import { Image, ImageBackground, View, Text, TouchableOpacity, StatusBar, Modal, ActivityIndicator, Alert, Dimensions, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
@@ -14,55 +14,57 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useProfileAccess } from 'hooks/useProfileAccess';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PricingModal from 'components/PricingModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
 
-const STORY_PROMPTS = [
+const STORY_PROMPTS: { icon: string; title: string; subtitle: string }[] = [
   {
-    emoji: "\u{1F4D6}",
+    icon: "book-outline",
     title: "Read Their Favorite Book",
     subtitle: "Record yourself reading it aloud — trust us, they'll replay this forever"
   },
   {
-    emoji: "\u{1F602}",
+    icon: "happy-outline",
     title: "The Funniest Thing They Ever Did",
     subtitle: "That story you always tell at family dinners? Record it."
   },
   {
-    emoji: "\u{1F3C6}",
+    icon: "trophy-outline",
     title: "The Moment You Were Most Proud",
     subtitle: "Tell them about the day they blew you away"
   },
   {
-    emoji: "\u{1F319}",
+    icon: "moon-outline",
     title: "Tonight's Bedtime Story",
     subtitle: "Make one up, read one, or just say goodnight — they'll love it"
   },
   {
-    emoji: "\u{1F4AA}",
+    icon: "heart-outline",
     title: "When Life Gets Hard",
     subtitle: "The advice you'd give them when they're struggling and you're not there"
   },
   {
-    emoji: "\u{1F389}",
+    icon: "gift-outline",
     title: "Your Favorite Birthday Memory",
     subtitle: "A birthday party, a gift, a cake disaster — whatever makes you smile"
   },
   {
-    emoji: "\u{1F3E0}",
+    icon: "home-outline",
     title: "What Home Means to You",
     subtitle: "The house, the people, the feeling — paint them a picture"
   },
   {
-    emoji: "\u26BE",
+    icon: "bulb-outline",
     title: "Teach Them Something",
     subtitle: "How to throw a ball, tie a tie, change a tire — show them your moves"
   },
   {
-    emoji: "\u2708\uFE0F",
+    icon: "airplane-outline",
     title: "The Best Trip You Ever Took",
     subtitle: "Take them somewhere they've never been through your story"
   },
   {
-    emoji: "\u2764\uFE0F",
+    icon: "people-outline",
     title: "Why You Wanted to Be a Dad",
     subtitle: "The real reason — not the Hallmark version"
   }
@@ -71,10 +73,35 @@ const STORY_PROMPTS = [
 const PROMPT_CARD_WIDTH = 160;
 const PROMPT_CARD_HEIGHT = 180;
 
+/* ──────────────────────────────────────────────
+   Helper: relative time string
+   ────────────────────────────────────────────── */
+function relativeTime(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return '1 day ago';
+  if (days < 7) return `${days} days ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks === 1) return '1 week ago';
+  if (weeks < 5) return `${weeks} weeks ago`;
+  const months = Math.floor(days / 30);
+  if (months === 1) return '1 month ago';
+  return `${months} months ago`;
+}
+
 export default function HomeScreen() {
 
   const { colorScheme } = useTheme();
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   type Narr = {
     id: string;
@@ -90,6 +117,8 @@ export default function HomeScreen() {
     id: string;
     title: string | null;
     thumbnail_url: string | null;
+    thumbnail_path?: string | null;
+    file_path?: string | null;
     duration: number | null;
     created_at: string;
   };
@@ -99,7 +128,7 @@ export default function HomeScreen() {
     return (
       <View className="flex-1 items-center justify-center px-4">
         <View className={`p-4 rounded-full ${isDark ? 'bg-gray-800' : 'bg-slate-200'}`}>
-          <Ionicons name="camera-outline" size={40} color="#c4a471" />
+          <Ionicons name="camera-outline" size={40} color="#D4A853" />
         </View>
         <Text className={`mt-4 font-merriweather text-xl font-medium text-center ${isDark ? 'text-gray-100' : 'text-slate-600'}`}>
           {title}
@@ -138,9 +167,45 @@ export default function HomeScreen() {
   const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string | null>>({});
   const [childAvatars, setChildAvatars] = useState<Record<string, string | null>>({});
   const [childCounts, setChildCounts] = useState<any[]>([]);
-  const router = useRouter()
 
   const { user, trialStartDate, showPricingModal, setShowPricingModal } = useAuth()
+
+  /* ──────────────────────────────────────────────
+     Animated child name — fade cycle every 3.5s
+     ────────────────────────────────────────────── */
+  const nameOpacity = useRef(new Animated.Value(1)).current;
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const [activeChildIndex, setActiveChildIndex] = useState(0);
+
+  useEffect(() => {
+    if (children.length === 0) return;
+
+    const cycle = () => {
+      // Fade out
+      Animated.timing(nameOpacity, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }).start(() => {
+        // Swap name
+        setActiveChildIndex((prev) => (prev + 1) % children.length);
+        // Fade in
+        Animated.timing(nameOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }).start();
+      });
+    };
+
+    const interval = setInterval(cycle, 3500);
+    return () => clearInterval(interval);
+  }, [children.length, nameOpacity]);
+
+  const activeChildName = children.length > 0 ? children[activeChildIndex % children.length]?.name : null;
+  const activeChildAvatar = children.length > 0
+    ? childAvatars[children[activeChildIndex % children.length]?.id] || null
+    : null;
 
   const getDateDiff = () => {
     if (trialStartDate) {
@@ -435,364 +500,538 @@ export default function HomeScreen() {
     loadDismissedState();
   }, [isSubscribed, videosRemaining]);
 
+  /* ──────────────────────────────────────────────
+     "Last Recorded" story — most recent video or narration
+     ────────────────────────────────────────────── */
+  const lastStory = useMemo(() => {
+    const allStories = [
+      ...videos.map((v) => ({ type: 'video' as const, id: v.id, title: v.title, created_at: v.created_at, data: v })),
+      ...narrations.map((n) => ({ type: 'narration' as const, id: n.id, title: n.title, created_at: n.created_at, data: n })),
+    ];
+    allStories.sort((a, b) => Number(new Date(b.created_at)) - Number(new Date(a.created_at)));
+    return allStories[0] || null;
+  }, [videos, narrations]);
+
+  const handleTapLastStory = async () => {
+    if (!lastStory) return;
+    if (lastStory.type === 'video') {
+      const v = lastStory.data as any;
+      if (!v.file_path) return;
+      try {
+        const { data, error } = await supabase.storage.from('videos').createSignedUrl(v.file_path, 3600);
+        if (error) throw error;
+        setSelectedVideo(v);
+        setVideoUrl(data?.signedUrl || null);
+      } catch (err) {
+        console.error('Error opening last story:', err);
+      }
+    } else {
+      const n = lastStory.data as Narr;
+      if (n.notes || (!n.image_path && !n.audio_path)) {
+        setSelectedNote(n);
+      }
+    }
+  };
+
+  /* ──────────────────────────────────────────────
+     Monthly count for stats (rolling 30 days, goal = 4)
+     ────────────────────────────────────────────── */
+  const MONTHLY_GOAL = 4;
+  const monthlyCount = useMemo(() => {
+    const now = new Date();
+    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const vCount = videos.filter((v) => new Date(v.created_at) >= monthAgo).length;
+    const nCount = narrations.filter((n) => new Date(n.created_at) >= monthAgo).length;
+    return vCount + nCount;
+  }, [videos, narrations]);
+
+  const totalStories = videos.length + narrations.length;
 
   return (
-    <View className="flex-1">
+    <View style={{ flex: 1, backgroundColor: isDark ? '#111827' : '#F5F3EF', paddingTop: insets.top + 16 }}>
       <StatusBar barStyle="light" backgroundColor="#1e293b" />
-      <ScrollView
-        className={`flex-1`}
-        style={{ backgroundColor: isDark ? '#111827' : '#F5F3EF' }}
-        contentContainerStyle={{ paddingBottom: 100 }}>
-        <View className="px-6 pt-4 mt-4">
-          <Text
-            style={{ fontSize: 24, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838', marginBottom: 8 }}>Home</Text>
 
-          <Text className="text-gray-400 mb-6 leading-5 font-semibold">
-            One day, this will mean everything.
+        {/* Header */}
+        <View style={{ paddingHorizontal: 24 }}>
+          <Text
+            style={{ fontSize: 28, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838', marginBottom: 4 }}>{totalStories === 0 ? 'Welcome, Dad' : 'Welcome back, Dad'}</Text>
+          <Text style={{ color: '#6B7280', fontStyle: 'italic', fontWeight: '300', fontSize: 14, marginBottom: 0 }}>
+            Build something that outlives you.
           </Text>
         </View>
 
+        {/* Hero CTA — dark gradient with ghostly child photo */}
+        <View style={{ paddingHorizontal: 24, marginTop: 16 }}>
+          <View style={{
+            borderRadius: 16,
+            overflow: 'hidden',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.20,
+            shadowRadius: 16,
+            elevation: 6,
+          }}>
+            {activeChildAvatar ? (
+              <ImageBackground
+                source={{ uri: activeChildAvatar }}
+                style={{ width: '100%' }}
+                imageStyle={{ borderRadius: 16, opacity: 0.55 }}
+                resizeMode="cover"
+              >
+                <LinearGradient
+                  colors={['rgba(27,40,56,0.7)', 'rgba(27,40,56,0.85)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                  style={{ borderRadius: 16, padding: 20 }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <Ionicons name="videocam" size={16} color="#D4A853" />
+                    <Text style={{ marginLeft: 8, fontSize: 11, fontWeight: '700', color: '#D4A853', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                      TODAY'S STORY
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4 }}>
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>
+                      Record a video for{' '}
+                    </Text>
+                    <Animated.Text style={{ fontSize: 20, fontWeight: '700', color: '#D4A853', opacity: nameOpacity }}>
+                      {activeChildName}
+                    </Animated.Text>
+                  </View>
+                  <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 14, lineHeight: 18 }}>
+                    This will mean the world one day.
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => router.push({ pathname: '(tabs)/memories/capture', params: { defaultTab: 'video' } })}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={['#D4A853', '#C49A45']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={{
+                        borderRadius: 12,
+                        paddingVertical: 12,
+                        alignItems: 'center',
+                        flexDirection: 'row',
+                        justifyContent: 'center',
+                        shadowColor: '#D4A853',
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.35,
+                        shadowRadius: 10,
+                        elevation: 4,
+                      }}
+                    >
+                      <Ionicons name="videocam-outline" size={18} color="#1B2838" style={{ marginRight: 8 }} />
+                      <Text style={{ color: '#1B2838', fontWeight: '700', fontSize: 16 }}>Start Recording</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </LinearGradient>
+              </ImageBackground>
+            ) : (
+              <LinearGradient
+                colors={['#1B2838', '#2C3E50']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ borderRadius: 16, padding: 20 }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <Ionicons name="videocam" size={16} color="#D4A853" />
+                  <Text style={{ marginLeft: 8, fontSize: 11, fontWeight: '700', color: '#D4A853', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                    TODAY'S STORY
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4 }}>
+                  <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>
+                    Record a video for{' '}
+                  </Text>
+                  {children.length === 0 ? (
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: '#D4A853' }}>your kids</Text>
+                  ) : (
+                    <Animated.Text style={{ fontSize: 20, fontWeight: '700', color: '#D4A853', opacity: nameOpacity }}>
+                      {activeChildName}
+                    </Animated.Text>
+                  )}
+                </View>
+                <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 14, lineHeight: 18 }}>
+                  This will mean the world one day.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: '(tabs)/memories/capture', params: { defaultTab: 'video' } })}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['#D4A853', '#C49A45']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={{
+                      borderRadius: 12,
+                      paddingVertical: 12,
+                      alignItems: 'center',
+                      flexDirection: 'row',
+                      justifyContent: 'center',
+                      shadowColor: '#D4A853',
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.35,
+                      shadowRadius: 10,
+                      elevation: 4,
+                    }}
+                  >
+                    <Ionicons name="videocam-outline" size={18} color="#1B2838" style={{ marginRight: 8 }} />
+                    <Text style={{ color: '#1B2838', fontWeight: '700', fontSize: 16 }}>Start Recording</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </LinearGradient>
+            )}
+          </View>
+        </View>
 
-        <View className="px-6">
-          {/* Hero CTA — dark gradient, premium feel */}
-          <LinearGradient
-            colors={['#1B2838', '#2C3E50']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              borderRadius: 16,
-              padding: 22,
-              marginBottom: 24,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.20,
-              shadowRadius: 16,
-              elevation: 6,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-              <Ionicons name="videocam" size={18} color="#D4A853" />
-              <Text style={{ marginLeft: 8, fontSize: 11, fontWeight: '700', color: '#D4A853', letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                TODAY'S STORY
-              </Text>
-            </View>
-            <Text
-              style={{
-                fontSize: 22,
-                fontWeight: '700',
-                color: '#FFFFFF',
-                marginBottom: 6,
-              }}
-            >
-              {children.length === 0
-                ? 'Record a video for your kids'
-                : `Record a video for ${children[Math.floor(Math.random() * children.length)].name}`}
-            </Text>
-            <Text
-              style={{
-                fontSize: 14,
-                color: 'rgba(255,255,255,0.7)',
-                marginBottom: 20,
-                lineHeight: 20,
-              }}
-            >
-              This will mean the world one day.
-            </Text>
-            <TouchableOpacity
-              onPress={() =>
-                router.push({
-                  pathname: '(tabs)/memories/capture',
-                  params: { defaultTab: 'video' },
-                })
-              }
-              activeOpacity={0.8}
-              style={{
-                backgroundColor: '#D4A853',
-                borderRadius: 12,
-                paddingVertical: 14,
-                alignItems: 'center',
-                flexDirection: 'row',
-                justifyContent: 'center',
-                shadowColor: '#D4A853',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-                elevation: 4,
-              }}
-            >
-              <Ionicons name="videocam-outline" size={18} color="#1B2838" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#1B2838', fontWeight: '700', fontSize: 16 }}>Start Recording</Text>
-            </TouchableOpacity>
-          </LinearGradient>
-
-          <Text style={{ fontSize: 16, fontWeight: '600', color: isDark ? '#f3f4f6' : '#1B2838', marginBottom: 12 }}>
+        {/* Story Prompts header */}
+        <View style={{ paddingHorizontal: 24, marginTop: 16, marginBottom: 10 }}>
+          <Text style={{ fontSize: 16, fontWeight: '600', color: isDark ? '#f3f4f6' : '#1B2838' }}>
             Story Prompts
           </Text>
         </View>
 
-        {/* Horizontal prompts slider — full bleed */}
-        <RNFlatList
+        {/* Horizontal prompts slider — full bleed with scale effect */}
+        <Animated.FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={[...STORY_PROMPTS, { emoji: '', title: '', subtitle: '', type: 'see_all' } as any]}
+          data={[...STORY_PROMPTS, { icon: '', title: '', subtitle: '', type: 'see_all' } as any]}
           keyExtractor={(_, idx) => `prompt-${idx}`}
-          contentContainerStyle={{ paddingHorizontal: 20, gap: 12, marginBottom: 24 }}
+          contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
           snapToInterval={PROMPT_CARD_WIDTH + 12}
           decelerationRate="fast"
-          renderItem={({ item }) => {
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+            { useNativeDriver: true }
+          )}
+          scrollEventThrottle={16}
+          renderItem={({ item, index }) => {
+            const ITEM_INTERVAL = PROMPT_CARD_WIDTH + 12;
+            const scale = scrollX.interpolate({
+              inputRange: [
+                (index - 1) * ITEM_INTERVAL,
+                index * ITEM_INTERVAL,
+                (index + 1) * ITEM_INTERVAL,
+              ],
+              outputRange: [0.97, 1.03, 0.97],
+              extrapolate: 'clamp',
+            });
+
             if ((item as any).type === 'see_all') {
               return (
+                <Animated.View style={{ transform: [{ scale }] }}>
+                  <TouchableOpacity
+                    onPress={() => router.push('(tabs)/memories/ideas')}
+                    activeOpacity={0.7}
+                    style={{
+                      width: PROMPT_CARD_WIDTH,
+                      height: PROMPT_CARD_HEIGHT,
+                      borderRadius: 14,
+                      backgroundColor: isDark ? '#1f2937' : '#F0F2F5',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 1,
+                      borderColor: isDark ? '#374151' : '#e8e5e0',
+                    }}
+                  >
+                    <Ionicons name="arrow-forward-circle" size={28} color="#D4A853" />
+                    <Text style={{ marginTop: 10, fontSize: 14, fontWeight: '600', color: '#D4A853' }}>
+                      See All Prompts
+                    </Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              );
+            }
+            return (
+              <Animated.View style={{ transform: [{ scale }] }}>
                 <TouchableOpacity
-                  onPress={() => router.push('(tabs)/memories/ideas')}
+                  onPress={() => router.push({
+                    pathname: '(tabs)/memories/capture',
+                    params: { defaultTab: 'video', selectedPrompt: item.title },
+                  })}
                   activeOpacity={0.7}
                   style={{
                     width: PROMPT_CARD_WIDTH,
                     height: PROMPT_CARD_HEIGHT,
+                    backgroundColor: isDark ? '#1f2937' : '#ffffff',
                     borderRadius: 14,
-                    backgroundColor: isDark ? '#1f2937' : '#F0F2F5',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    padding: 14,
                     borderWidth: 1,
                     borderColor: isDark ? '#374151' : '#e8e5e0',
+                    borderLeftWidth: 4,
+                    borderLeftColor: '#D4A853',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.12,
+                    shadowRadius: 12,
+                    elevation: 3,
                   }}
                 >
-                  <Ionicons name="arrow-forward-circle" size={28} color="#D4A853" />
-                  <Text style={{ marginTop: 10, fontSize: 14, fontWeight: '600', color: '#D4A853' }}>
-                    See All Prompts
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: isDark ? '#374151' : '#FBF7F0',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: 10,
+                    }}
+                  >
+                    <Ionicons name={item.icon as any} size={22} color="#D4A853" />
+                  </View>
+                  <Text
+                    style={{ fontSize: 14, fontWeight: '700', marginBottom: 4, color: isDark ? '#f3f4f6' : '#1B2838' }}
+                    numberOfLines={2}
+                  >
+                    {item.title}
+                  </Text>
+                  <Text
+                    style={{ fontSize: 12, color: isDark ? '#9ca3af' : '#6B7280', lineHeight: 16 }}
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
+                  >
+                    {item.subtitle}
                   </Text>
                 </TouchableOpacity>
-              );
-            }
-            return (
-              <TouchableOpacity
-                onPress={() => router.push({
-                  pathname: '(tabs)/memories/capture',
-                  params: { defaultTab: 'audio', selectedPrompt: item.title },
-                })}
-                activeOpacity={0.7}
-                style={{
-                  width: PROMPT_CARD_WIDTH,
-                  height: PROMPT_CARD_HEIGHT,
-                  backgroundColor: isDark ? '#1f2937' : '#ffffff',
-                  borderRadius: 14,
-                  padding: 14,
-                  borderWidth: 1,
-                  borderColor: isDark ? '#374151' : '#e8e5e0',
-                  borderLeftWidth: 4,
-                  borderLeftColor: '#D4A853',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.12,
-                  shadowRadius: 12,
-                  elevation: 3,
-                }}
-              >
-                <View
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
-                    backgroundColor: isDark ? '#374151' : '#FBF7F0',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: 10,
-                  }}
-                >
-                  <Text style={{ fontSize: 20 }}>{item.emoji}</Text>
-                </View>
-                <Text
-                  style={{ fontSize: 14, fontWeight: '700', marginBottom: 4, color: isDark ? '#f3f4f6' : '#1B2838' }}
-                  numberOfLines={2}
-                >
-                  {item.title}
-                </Text>
-                <Text
-                  style={{ fontSize: 12, color: isDark ? '#9ca3af' : '#6B7280', lineHeight: 16 }}
-                  numberOfLines={2}
-                  ellipsizeMode="tail"
-                >
-                  {item.subtitle}
-                </Text>
-              </TouchableOpacity>
+              </Animated.View>
             );
           }}
         />
 
-        {/* Your Legacy So Far — stats section */}
-        <View style={{ paddingHorizontal: 24, marginTop: 8, marginBottom: 16 }}>
+        {/* Flex spacer pushes stats to bottom */}
+        <View style={{ flex: 1, minHeight: 24 }} />
+
+        {/* Your Legacy So Far — stats section anchored to bottom */}
+        <View style={{ paddingHorizontal: 24, paddingBottom: insets.bottom + 12 }}>
           <Text
             style={{
-              fontSize: 20,
+              fontSize: 16,
               fontWeight: '600',
               color: isDark ? '#f3f4f6' : '#1B2838',
-              marginBottom: 16,
+              marginBottom: 8,
             }}
           >
             Your Legacy So Far
           </Text>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            {[
-              {
-                label: 'Total Stories',
-                value: videos.length + narrations.length,
-                icon: 'book-outline' as const,
-              },
-              {
-                label: 'This Month',
-                value: (() => {
-                  const now = new Date();
-                  const thisMonth = now.getMonth();
-                  const thisYear = now.getFullYear();
-                  return (
-                    videos.filter((v) => {
-                      const d = new Date(v.created_at);
-                      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
-                    }).length +
-                    narrations.filter((n) => {
-                      const d = new Date(n.created_at);
-                      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
-                    }).length
-                  );
-                })(),
-                icon: 'calendar-outline' as const,
-              },
-              {
-                label: 'Kids Watching',
-                value: children.length,
-                icon: 'people-outline' as const,
-              },
-            ].map((stat, i) => (
-              <View
-                key={i}
+
+          {totalStories === 0 ? (
+            /* Zero stories — humanized empty state */
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: '(tabs)/memories/capture', params: { defaultTab: 'video' } })}
+              activeOpacity={0.8}
+              style={{
+                backgroundColor: isDark ? '#1f2937' : '#ffffff',
+                borderRadius: 14,
+                padding: 20,
+                borderWidth: 1,
+                borderColor: isDark ? '#374151' : '#e0e3e8',
+              }}
+            >
+              <Text style={{ fontSize: 18, fontWeight: '600', color: isDark ? '#f3f4f6' : '#1B2838', marginBottom: 4 }}>
+                You're just getting started.
+              </Text>
+              <Text style={{ fontSize: 14, color: isDark ? '#9ca3af' : '#6B7280', marginBottom: 14 }}>
+                Record your first story today.
+              </Text>
+              {/* Progress bar */}
+              <View style={{ height: 6, borderRadius: 3, backgroundColor: isDark ? '#374151' : '#E5E7EB', marginBottom: 8 }}>
+                <View style={{ width: '0%', height: 6, borderRadius: 3, backgroundColor: '#D4A853' }} />
+              </View>
+              <Text style={{ fontSize: 12, color: isDark ? '#6b7280' : '#9CA3AF' }}>0 of {MONTHLY_GOAL} this month</Text>
+            </TouchableOpacity>
+          ) : (
+            /* 1+ stories — stat cards */
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 }}>
+              {/* Stories card — tappable → Stories tab */}
+              <TouchableOpacity
+                onPress={() => router.push('(tabs)/memories')}
+                activeOpacity={0.7}
                 style={{
                   flex: 1,
-                  minHeight: 120,
                   backgroundColor: isDark ? '#1f2937' : '#F0F2F5',
-                  borderRadius: 14,
-                  padding: 16,
-                  marginHorizontal: i === 1 ? 8 : 0,
+                  borderRadius: 12,
+                  paddingVertical: 14,
+                  paddingHorizontal: 8,
+                  marginRight: 8,
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderWidth: 1,
                   borderColor: isDark ? '#374151' : '#e0e3e8',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.08,
-                  shadowRadius: 6,
-                  elevation: 3,
                 }}
               >
-                <View
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
-                    backgroundColor: isDark ? '#374151' : '#E8E5DF',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: 8,
-                  }}
-                >
-                  <Ionicons name={stat.icon} size={18} color="#D4A853" />
-                </View>
-                <Text
-                  style={{
-                    fontSize: 32,
-                    fontWeight: '700',
-                    color: isDark ? '#f3f4f6' : '#1B2838',
-                    marginBottom: 2,
-                  }}
-                >
-                  {stat.value}
+                <Ionicons name="book-outline" size={16} color="#D4A853" style={{ marginBottom: 4 }} />
+                <Text style={{ fontSize: 26, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838' }}>
+                  {totalStories}
                 </Text>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: '600',
-                    color: isDark ? '#9ca3af' : '#6B7280',
-                    textTransform: 'uppercase',
-                    letterSpacing: 1,
-                  }}
-                >
-                  {stat.label}
+                <Text style={{ fontSize: 10, fontWeight: '600', color: isDark ? '#9ca3af' : '#6B7280', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                  Stories
+                </Text>
+              </TouchableOpacity>
+
+              {/* Monthly Goal — circular progress ring */}
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: isDark ? '#1f2937' : '#F0F2F5',
+                  borderRadius: 12,
+                  paddingVertical: 10,
+                  paddingHorizontal: 8,
+                  marginHorizontal: 0,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: isDark ? '#374151' : '#e0e3e8',
+                }}
+              >
+                {(() => {
+                  const RING_RADIUS = 28;
+                  const RING_STROKE = 4;
+                  const RING_SIZE = (RING_RADIUS + RING_STROKE) * 2;
+                  const circumference = 2 * Math.PI * RING_RADIUS;
+                  const progress = Math.min(monthlyCount / MONTHLY_GOAL, 1);
+                  const strokeDashoffset = circumference * (1 - progress);
+                  return (
+                    <View style={{ width: RING_SIZE, height: RING_SIZE, alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+                      <Svg width={RING_SIZE} height={RING_SIZE}>
+                        {/* Background track */}
+                        <Circle
+                          cx={RING_SIZE / 2}
+                          cy={RING_SIZE / 2}
+                          r={RING_RADIUS}
+                          stroke={isDark ? '#374151' : '#E5E7EB'}
+                          strokeWidth={RING_STROKE}
+                          fill="none"
+                        />
+                        {/* Gold progress arc */}
+                        <Circle
+                          cx={RING_SIZE / 2}
+                          cy={RING_SIZE / 2}
+                          r={RING_RADIUS}
+                          stroke="#D4A853"
+                          strokeWidth={RING_STROKE}
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeDasharray={`${circumference}`}
+                          strokeDashoffset={strokeDashoffset}
+                          rotation="-90"
+                          origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
+                        />
+                      </Svg>
+                      {/* Centered fraction text */}
+                      <View style={{ position: 'absolute', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ fontSize: 18, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838' }}>
+                          {monthlyCount}/{MONTHLY_GOAL}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })()}
+                <Text style={{ fontSize: 11, fontWeight: '600', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                  THIS MONTH
                 </Text>
               </View>
-            ))}
-          </View>
+
+              {/* Kids card — tappable → Children tab */}
+              <TouchableOpacity
+                onPress={() => router.push('(tabs)/children')}
+                activeOpacity={0.7}
+                style={{
+                  flex: 1,
+                  backgroundColor: isDark ? '#1f2937' : '#F0F2F5',
+                  borderRadius: 12,
+                  paddingVertical: 14,
+                  paddingHorizontal: 8,
+                  marginLeft: 8,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: isDark ? '#374151' : '#e0e3e8',
+                }}
+              >
+                <Ionicons name="people-outline" size={16} color="#D4A853" style={{ marginBottom: 4 }} />
+                <Text style={{ fontSize: 26, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838' }}>
+                  {children.length}
+                </Text>
+                <Text style={{ fontSize: 10, fontWeight: '600', color: isDark ? '#9ca3af' : '#6B7280', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                  Kids
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
-        <View className="px-6 mt-4">
-          {showDeleteModal ? (
-            <Modal
-              visible={showDeleteModal}
-              transparent
-              animationType="fade"
-              onRequestClose={() => {
-                setShowDeleteModal(false);
-                setCurrentNarration(null);
-              }}
-            >
-              <View className="flex-1 bg-gray-600/50 items-center justify-center p-4">
-                <View className={`${isDark ? 'bg-[#1f2937]' : 'bg-white'} rounded-xl shadow-xl max-w-md w-full p-6`}>
-                  <Text className={`text-lg font-semibold mb-4 ${isDark ? 'text-red-200' : 'text-red-900'}`}>Delete Story</Text>
-                  <Text className={`${isDark ? 'text-gray-300' : 'text-gray-600'} mb-4`}>
-                    This action cannot be undone. This will permanently delete the story from the vault
-                  </Text>
+        {/* Modals — rendered outside layout flow */}
+        {showDeleteModal ? (
+          <Modal
+            visible={showDeleteModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => {
+              setShowDeleteModal(false);
+              setCurrentNarration(null);
+            }}
+          >
+            <View className="flex-1 bg-gray-600/50 items-center justify-center p-4">
+              <View className={`${isDark ? 'bg-[#1f2937]' : 'bg-white'} rounded-xl shadow-xl max-w-md w-full p-6`}>
+                <Text className={`text-lg font-semibold mb-4 ${isDark ? 'text-red-200' : 'text-red-900'}`}>Delete Story</Text>
+                <Text className={`${isDark ? 'text-gray-300' : 'text-gray-600'} mb-4`}>
+                  This action cannot be undone. This will permanently delete the story from the vault
+                </Text>
 
-                  <View className="flex-row gap-4">
-                    {!isDeleting ? (
-                      <TouchableOpacity
-                        disabled={isDeleting}
-                        onPress={() => {
-                          setShowDeleteModal(false);
-                          setCurrentNarration(null);
-                        }}
-                        className={`flex-1 py-2 px-4 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}
-                        activeOpacity={0.7}
-                      >
-                        <Text className={`${isDark ? 'text-gray-200' : 'text-gray-700'} text-center font-medium`}>Cancel</Text>
-                      </TouchableOpacity>
-                    ) : null}
-
+                <View className="flex-row gap-4">
+                  {!isDeleting ? (
                     <TouchableOpacity
-                      onPress={currentNarration?.id ? handleDeleteNarrations : handleDeleteVideos}
                       disabled={isDeleting}
-                      className="flex-1 bg-red-600 py-2 px-4 rounded-lg active:bg-red-700 disabled:opacity-50 flex-row items-center justify-center"
+                      onPress={() => {
+                        setShowDeleteModal(false);
+                        setCurrentNarration(null);
+                      }}
+                      className={`flex-1 py-2 px-4 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}
                       activeOpacity={0.7}
                     >
-                      {isDeleting ? <ActivityIndicator size="small" color="white" className="mr-2" /> : null}
-                      <Text className="text-white text-center font-medium">{isDeleting ? 'Deleting...' : 'Delete'}</Text>
+                      <Text className={`${isDark ? 'text-gray-200' : 'text-gray-700'} text-center font-medium`}>Cancel</Text>
                     </TouchableOpacity>
-                  </View>
+                  ) : null}
+
+                  <TouchableOpacity
+                    onPress={currentNarration?.id ? handleDeleteNarrations : handleDeleteVideos}
+                    disabled={isDeleting}
+                    className="flex-1 bg-red-600 py-2 px-4 rounded-lg active:bg-red-700 disabled:opacity-50 flex-row items-center justify-center"
+                    activeOpacity={0.7}
+                  >
+                    {isDeleting ? <ActivityIndicator size="small" color="white" className="mr-2" /> : null}
+                    <Text className="text-white text-center font-medium">{isDeleting ? 'Deleting...' : 'Delete'}</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-            </Modal>
-          ) : null}
+            </View>
+          </Modal>
+        ) : null}
 
-          {selectedNote ? (
-            <NotesModal
-              {...selectedNote}
-              onClose={() => {
-                setSelectedNote(null);
-              }}
-            />
-          ) : null}
+        {selectedNote ? (
+          <NotesModal
+            {...selectedNote}
+            visible={true}
+            onClose={() => {
+              setSelectedNote(null);
+            }}
+          />
+        ) : null}
 
-          {selectedVideo && videoUrl ? (
-            <VideoPlayerWithNotes
-              selectedVideo={selectedVideo}
-              videoUrl={videoUrl}
-              setSelectedVideo={setSelectedVideo}
-              onClose={() => {
-                setSelectedVideo(null);
-                setVideoUrl(null);
-              }}
-            />
-          ) : null}
-
-        </View>
-
-      </ScrollView>
+        {selectedVideo && videoUrl ? (
+          <VideoPlayerWithNotes
+            selectedVideo={selectedVideo}
+            videoUrl={videoUrl}
+            setSelectedVideo={setSelectedVideo}
+            onClose={() => {
+              setSelectedVideo(null);
+              setVideoUrl(null);
+            }}
+          />
+        ) : null}
 
       <PricingModal
         showModalRepeatedly={showModalRepeatedly}

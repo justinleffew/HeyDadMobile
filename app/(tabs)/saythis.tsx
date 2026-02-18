@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// ProtectedRoute already wraps in SafeAreaView — no need for useSafeAreaInsets here
 import { useAuth } from 'hooks/useAuth';
 import { supabase } from 'utils/supabase';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -59,7 +59,6 @@ export default function DadChatScreen() {
   const [childAvatars, setChildAvatars] = useState<Record<string, string | null>>({});
   const flatListRef = useRef<FlatList>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const insets = useSafeAreaInsets();
 
   const bg = isDark ? 'bg-gray-900' : 'bg-gray-50';
   const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
@@ -324,8 +323,8 @@ export default function DadChatScreen() {
   );
 
   const renderEmptyState = useCallback(() => (
-    <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: '20%' }}>
-      {/* Logo mark */}
+    <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: '20%', alignItems: 'center' }}>
+      {/* Logo mark — centered */}
       <View
         style={{
           width: 80,
@@ -344,11 +343,11 @@ export default function DadChatScreen() {
         />
       </View>
 
-      {/* Header — left aligned */}
-      <Text style={{ fontSize: 22, fontWeight: '600', color: isDark ? '#f3f4f6' : '#1B2838', marginBottom: 8 }}>
+      {/* Header — centered */}
+      <Text style={{ fontSize: 22, fontWeight: '600', color: isDark ? '#f3f4f6' : '#1B2838', marginBottom: 8, textAlign: 'center' }}>
         What's on your mind, Dad?
       </Text>
-      <Text style={{ fontSize: 14, color: '#6B7280', marginBottom: 28, lineHeight: 20 }}>
+      <Text style={{ fontSize: 14, color: '#6B7280', marginBottom: 28, lineHeight: 20, textAlign: 'center' }}>
         Ask anything about being a dad. Get help with activities, tough moments, or just talk it out.
       </Text>
 
@@ -382,13 +381,8 @@ export default function DadChatScreen() {
   ), [isDark]);
 
   return (
-    <View className={`flex-1 ${bg}`} style={{ paddingTop: insets.top }}>
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
-      >
-        {/* Header — tight to safe area */}
+    <View className={`flex-1 ${bg}`}>
+        {/* Header — no extra paddingTop since ProtectedRoute already wraps in SafeAreaView */}
         <View className={`flex-row items-center justify-between px-4 pb-2 border-b ${borderColor}`}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 28, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838' }}>Dad Chat</Text>
@@ -460,83 +454,90 @@ export default function DadChatScreen() {
           ) : null}
         </View>
 
-        {/* Messages */}
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{
-            paddingVertical: 16,
-            flexGrow: messages.length === 0 ? 1 : undefined,
-          }}
-          ListEmptyComponent={renderEmptyState}
-          onContentSizeChange={() => {
-            if (messages.length > 0) {
-              flatListRef.current?.scrollToEnd({ animated: false });
-            }
-          }}
-          keyboardShouldPersistTaps="handled"
-        />
-
-        {/* Loading indicator */}
-        {loading ? (
-          <View className="flex-row items-center px-6 py-2">
-            <ActivityIndicator size="small" color="#c4a471" />
-            <Text className={`ml-2 text-sm ${textSecondary}`}>Thinking...</Text>
-          </View>
-        ) : null}
-
-        {/* Input */}
-        <View
-          style={{
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-            borderTopWidth: 1,
-            borderTopColor: isDark ? '#374151' : '#e5e7eb',
-            backgroundColor: isDark ? '#111827' : '#ffffff',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.05,
-            shadowRadius: 4,
-            elevation: 3,
-          }}
+        {/* Chat content — KeyboardAvoidingView wraps ONLY messages + input, NOT header */}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={0}
         >
-          <View className={`flex-row items-end rounded-2xl border ${borderColor} ${inputBg}`}>
-            <TextInput
-              className={`flex-1 px-4 py-3 text-base max-h-24 ${textPrimary}`}
-              placeholder="What's on your mind?"
-              placeholderTextColor={isDark ? '#6b7280' : '#9ca3af'}
-              value={input}
-              onChangeText={setInput}
-              multiline
-              returnKeyType="default"
-              editable={!loading}
-            />
-            <TouchableOpacity
-              onPress={sendMessage}
-              disabled={!input.trim() || loading}
-              style={{
-                margin: 6,
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: input.trim() && !loading
-                  ? '#D4A853'
-                  : isDark ? '#374151' : '#e5e7eb',
-              }}
-            >
-              <Ionicons
-                name="arrow-up"
-                size={20}
-                color={input.trim() && !loading ? '#fff' : isDark ? '#6b7280' : '#9ca3af'}
+          {/* Messages */}
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{
+              paddingVertical: 16,
+              flexGrow: messages.length === 0 ? 1 : undefined,
+            }}
+            ListEmptyComponent={renderEmptyState}
+            onContentSizeChange={() => {
+              if (messages.length > 0) {
+                flatListRef.current?.scrollToEnd({ animated: false });
+              }
+            }}
+            keyboardShouldPersistTaps="handled"
+          />
+
+          {/* Loading indicator */}
+          {loading ? (
+            <View className="flex-row items-center px-6 py-2">
+              <ActivityIndicator size="small" color="#c4a471" />
+              <Text className={`ml-2 text-sm ${textSecondary}`}>Thinking...</Text>
+            </View>
+          ) : null}
+
+          {/* Input */}
+          <View
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              borderTopWidth: 1,
+              borderTopColor: isDark ? '#374151' : '#e5e7eb',
+              backgroundColor: isDark ? '#111827' : '#ffffff',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: -2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 4,
+              elevation: 3,
+            }}
+          >
+            <View className={`flex-row items-end rounded-2xl border ${borderColor} ${inputBg}`} style={{ minHeight: 52 }}>
+              <TextInput
+                className={`flex-1 px-4 py-3 text-base max-h-24 ${textPrimary}`}
+                style={{ textAlignVertical: 'center' }}
+                placeholder="What's on your mind?"
+                placeholderTextColor={isDark ? '#6b7280' : '#9ca3af'}
+                value={input}
+                onChangeText={setInput}
+                multiline
+                returnKeyType="default"
+                editable={!loading}
               />
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={sendMessage}
+                disabled={!input.trim() || loading}
+                style={{
+                  margin: 6,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: input.trim() && !loading
+                    ? '#D4A853'
+                    : isDark ? '#374151' : '#e5e7eb',
+                }}
+              >
+                <Ionicons
+                  name="arrow-up"
+                  size={20}
+                  color={input.trim() && !loading ? '#fff' : isDark ? '#6b7280' : '#9ca3af'}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
     </View>
   );
 }

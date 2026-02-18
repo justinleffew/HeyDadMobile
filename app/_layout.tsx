@@ -10,10 +10,6 @@ import { ThemeProvider, useTheme } from '../providers/ThemeProvider';
 
 SplashScreen.preventAutoHideAsync();
 
-// AppState listener moved inside RootLayoutNav component
-
-
-
 const RootLayoutNav = () => {
   const { colorScheme, isLoaded } = useTheme();
   const [fontsLoaded, error] = useFonts({

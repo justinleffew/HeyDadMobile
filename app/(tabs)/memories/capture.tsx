@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, CameraType, CameraView, useCameraPermissions } from 'expo-camera';
 import {
+  Animated,
   View,
   Text,
   Image,
@@ -32,6 +33,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import RetryUploadModal from 'components/RetryUploadModal';
 import { useRouter } from 'expo-router';
 import ImageNarration from 'components/ImageNarration';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../../providers/ThemeProvider';
 
 const videoExtension = Platform.OS === 'ios' ? '.mov' : '.mp4'
@@ -82,12 +84,22 @@ const RecordLegacyScreen = () => {
   const [audioCanAskAgain, setAudioCanAskAgain] = useState(true);
   const [isPermissionModalVisible, setIsPermissionModalVisible] = useState(false);
   const [permissionModalDismissed, setPermissionModalDismissed] = useState(false);
-  const [tab, setTab] = useState(defaultTab || "note")
+  const [tab, setTab] = useState(defaultTab || "video")
   const [showAddForm, setShowAddForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const router = useRouter()
 
   const [savingNarration, setSavingNarration] = useState(false)
+  const [videoTitleFocused, setVideoTitleFocused] = useState(false);
+
+  // Child scale animations for video tab
+  const childScaleAnims = useRef<{ [key: string]: Animated.Value }>({}).current;
+  const getChildScale = (id: string) => {
+    if (!childScaleAnims[id]) {
+      childScaleAnims[id] = new Animated.Value(1);
+    }
+    return childScaleAnims[id];
+  };
 
   const { height } = Dimensions.get('window')
   const [videoSessionId, setVideoSessionId] = useState("");
@@ -242,7 +254,7 @@ const RecordLegacyScreen = () => {
 
 
   useEffect(() => {
-    setTab(defaultTab || 'audio')
+    setTab(defaultTab || 'video')
   }, [defaultTab])
 
   useEffect(() => {
@@ -404,7 +416,7 @@ const RecordLegacyScreen = () => {
           videoResult,
           () => {
             setVideoCount((prevCount) => prevCount + 1);
-            router.replace("(tabs)/memories")
+            router.replace({ pathname: '(tabs)/memories', params: { defaultTab: 'video' } })
           },
         );
       }
@@ -704,7 +716,15 @@ const RecordLegacyScreen = () => {
 
 
   const toggleChild = (id: string) => {
+    const willSelect = !selectedChildren.includes(id);
     setSelectedChildren((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    if (willSelect) {
+      const scaleVal = getChildScale(id);
+      Animated.sequence([
+        Animated.spring(scaleVal, { toValue: 1.08, useNativeDriver: true, speed: 20, bounciness: 12 }),
+        Animated.spring(scaleVal, { toValue: 1.0, useNativeDriver: true, speed: 20, bounciness: 8 }),
+      ]).start();
+    }
   };
 
   return (
@@ -759,60 +779,31 @@ const RecordLegacyScreen = () => {
           />
           <ScrollView
             showsVerticalScrollIndicator={false}
-            // contentContainerStyle={{flex:1}}
-            className={`flex-1 ${contentSurface}`}>
+            className={`flex-1`}
+            style={{ backgroundColor: isDark ? '#111827' : '#F5F3EF' }}>
+            {/* Subtle top gradient */}
+            {!isDark && (
+              <LinearGradient
+                colors={['#EDE8E0', '#F5F3EF']}
+                locations={[0, 1]}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 300 }}
+              />
+            )}
             <KeyboardAvoidingView behavior={tab !== 'audio' ? 'position' : 'padding'}>
-              <View className={`flex-1 px-4 ${contentSurface}`}>
+              <View className={`flex-1 px-4`}>
                 {/* Title Section */}
                 <View className="mt-8 mb-6">
                   <Text style={{ fontSize: 28, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838', textAlign: 'center', marginBottom: 8 }}>Record a Story</Text>
-                  <Text className={`text-base text-center ${bodyText}`}>
-                    Your voice will be there when it matters the most.
+                  <Text style={{ fontSize: 14, fontStyle: 'italic', color: isDark ? 'rgba(243,244,246,0.5)' : 'rgba(27,40,56,0.5)', textAlign: 'center' }}>
+                    Take a breath. Then just talk to them.
                   </Text>
                 </View>
 
-                <View className="mx-auto mt-3 flex-row">
-                  <TouchableOpacity
-                    onPress={() => setTab('audio')}
-                    className={`flex-1 rounded-md min-w-24 h-10 p-2 items-center justify-center ${tab === 'audio' ? tabContainerActive : tabContainerInactive}`}
-                  >
-                    <Text className={`${tab === 'audio' ? tabTextActive : tabTextInactive} text-sm font-semibold`}>Tell a Story</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => setTab('video')}
-                    className={`ml-6 flex-1 rounded-md min-w-24 h-10 p-2 items-center justify-center ${tab === 'video' ? tabContainerActive : tabContainerInactive}`}
-                  >
-                    <Text className={`${tab === 'video' ? tabTextActive : tabTextInactive} text-sm font-semibold`}>Video Story</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => setTab('note')}
-                    className={`ml-6 flex-1 rounded-md min-w-24 h-10 p-2 items-center justify-center ${tab === 'note' ? tabContainerActive : tabContainerInactive}`}
-                  >
-                    <Text className={`${tab === 'note' ? tabTextActive : tabTextInactive} text-sm font-semibold`}>Write a Story</Text>
-                  </TouchableOpacity>
-                </View>
+                {/* Mode switcher removed — screen defaults to video mode */}
 
                 {tab === "video" &&
                   <>
                     <View className="mb-2 ">
-                      <View className="mt-7 flex-row items-center justify-between"
-                      >
-                        <Text className={`text-lg font-semibold font-merriweather ${subheadingText}`}>Video Story</Text>
-                        <TouchableOpacity
-                          onPress={() => {
-                            router.replace({
-                              pathname: "/(tabs)/memories/ideas",
-                              params: { tab: "video" }
-                            })
-                          }}
-                          activeOpacity={0.9}
-                          className={`${ideaButtonClass} flex-row items-center px-4 py-2 rounded-lg`}
-                        >
-                          <MaterialCommunityIcons name="lightbulb-on-outline" size={16} color="#fff" />
-                          <Text className="ml-2 text-white text-sm">Ideas</Text>
-                        </TouchableOpacity>
-                      </View>
-
                       {params.selectedPrompt ?
                         <View className={`w-full p-4 mt-4 rounded-md ${ideaPromptClass}`}>
                           <View className="flex-row justify-between">
@@ -919,13 +910,19 @@ const RecordLegacyScreen = () => {
                         <View className="flex-wrap flex-row items-center justify-center">
                           {!showPreview && children.length ? children.map((child, i) => {
                             const sel = selectedChildren.includes(child.id);
-                            return <TouchableOpacity
-                              key={i}
-                              onPress={() => toggleChild(child.id)}
-                              className={`items-center ${children.length > 1 && i !== 0 ? "ml-3" : ""}`}>
-                              <Image className={`bg-gray-800 rounded-full ${sel ? "border-4 border-amber-400" : ""} w-24 h-24`} source={{ uri: child.image }} />
-                              <Text className={`mt-2 text-lg ${isDark ? "text-gray-100" : "text-slate-600 "} mb-1 font-semibold`}>{child.name}</Text>
-                            </TouchableOpacity>
+                            const scaleVal = getChildScale(child.id);
+                            return (
+                              <Animated.View key={i} style={{ transform: [{ scale: scaleVal }], opacity: sel ? 1 : 0.5 }}>
+                                <TouchableOpacity
+                                  onPress={() => toggleChild(child.id)}
+                                  className={`items-center ${children.length > 1 && i !== 0 ? "ml-3" : ""}`}>
+                                  <View style={sel ? { borderWidth: 3, borderColor: '#D4A853', borderRadius: 999, padding: 2 } : { borderWidth: 3, borderColor: 'transparent', borderRadius: 999, padding: 2 }}>
+                                    <Image className="bg-gray-800 rounded-full w-24 h-24" source={{ uri: child.image }} />
+                                  </View>
+                                  <Text style={{ marginTop: 8, fontSize: 16, fontWeight: '600', color: sel ? (isDark ? '#f3f4f6' : '#1B2838') : (isDark ? '#9CA3AF' : '#94a3b8') }}>{child.name}</Text>
+                                </TouchableOpacity>
+                              </Animated.View>
+                            );
                           }) : null}
                         </View>
 
@@ -1079,14 +1076,40 @@ const RecordLegacyScreen = () => {
 
 
                       {!showPreview && children.length ? <>
-                        <Text className={`text-sm ${isDark ? "text-gray-100" : "text-slate-600 "} font-semibold mt-2 mb-3`}>Story Title</Text>
                         <TextInput
-                          className={inputClass}
-                          placeholder="Give your story title"
+                          style={{
+                            width: '100%',
+                            paddingHorizontal: 12,
+                            paddingVertical: 12,
+                            fontSize: 16,
+                            color: isDark ? '#f3f4f6' : '#1B2838',
+                            backgroundColor: isDark ? '#1f2937' : '#FAFAF8',
+                            borderWidth: 0,
+                            borderBottomWidth: videoTitleFocused ? 2 : 1,
+                            borderBottomColor: videoTitleFocused ? '#D4A853' : (isDark ? '#4b5563' : '#d1cdc6'),
+                            borderRadius: 0,
+                            marginTop: 8,
+                          }}
+                          placeholder="e.g. First Day of Kindergarten"
                           value={title}
                           onChangeText={setTitle}
-                          placeholderTextColor={isDark ? '#94A3B8' : '#94A3B8'}
+                          placeholderTextColor={isDark ? '#6b7280' : '#94a3b8'}
+                          onFocus={() => setVideoTitleFocused(true)}
+                          onBlur={() => setVideoTitleFocused(false)}
                         />
+                        <TouchableOpacity
+                          onPress={() => {
+                            router.replace({
+                              pathname: "/(tabs)/memories/ideas",
+                              params: { tab: "video" }
+                            })
+                          }}
+                          style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', marginTop: 10, marginBottom: 4 }}
+                          activeOpacity={0.7}
+                        >
+                          <MaterialCommunityIcons name="lightbulb-on-outline" size={14} color="#D4A853" />
+                          <Text style={{ marginLeft: 4, fontSize: 13, color: '#D4A853', fontWeight: '600' }}>Need ideas?</Text>
+                        </TouchableOpacity>
 
                         <View className="mb-4 gap-3">
                           <Text className={`mt-4 text-sm ${isDark ? "text-gray-100" : "text-slate-600 "} font-semibold mt-2`}>Unlock</Text>
@@ -1260,35 +1283,14 @@ const RecordLegacyScreen = () => {
 
                 {tab === "audio" &&
                   <View className="w-full max-w-2xl mt-3">
-                    <View className="my-4">
-                      <View className="flex-row items-center justify-between">
-                        <Text className={`text-lg font-semibold font-merriweather ${subheadingText}`}>Tell a Story</Text>
-                        <TouchableOpacity
-                          onPress={() => {
-                            router.replace({
-                              pathname: "/(tabs)/memories/ideas",
-                              params: { tab: "audio" }
-                            })
-                          }}
-                          activeOpacity={0.9}
-                          className={`${ideaButtonClass} flex-row items-center px-4 py-2 rounded-lg`}
-                        >
-                          <MaterialCommunityIcons name="lightbulb-on-outline" size={16} color="#fff" />
-                          <Text className="ml-2 text-white text-sm">Ideas</Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      {params.selectedPrompt ?
-                        <View className={`w-full p-4 mt-4 rounded-md ${ideaPromptClass}`}>
-                          <View className="flex-row justify-between">
-                            <Text className={`font-semibold text-lg ${isDark ? "text-gray-100" : "text-slate-800"}`}>Recording Prompt:</Text>
-                          </View>
-                          <Text className={`${isDark ? "text-gray-400" : "text-slate-400 "} mt-1 font-semibold`}>{params.selectedPrompt}</Text>
+                    {params.selectedPrompt ?
+                      <View className={`w-full p-4 my-4 rounded-md ${ideaPromptClass}`}>
+                        <View className="flex-row justify-between">
+                          <Text className={`font-semibold text-lg ${isDark ? "text-gray-100" : "text-slate-800"}`}>Recording Prompt:</Text>
                         </View>
-
-                        : null}
-                    </View>
-
+                        <Text className={`${isDark ? "text-gray-400" : "text-slate-400 "} mt-1 font-semibold`}>{params.selectedPrompt}</Text>
+                      </View>
+                      : null}
 
                     <View className={`rounded-lg p-6 mb-6 ${secondaryCard}`}>
                       <ImageNarration
@@ -1300,7 +1302,7 @@ const RecordLegacyScreen = () => {
                         children={children}
                         childrenOptions={childOptions}
                         onSaved={(id: string) => {
-                          router.replace('(tabs)/memories')
+                          router.replace({ pathname: '(tabs)/memories', params: { defaultTab: 'audio' } })
                         }}
                         onSelectChildren={(ids: string[]) => setSelectedChildren?.(ids)}
                       />
@@ -1310,34 +1312,14 @@ const RecordLegacyScreen = () => {
 
                 {tab === "note" &&
                   <View className="mt-3 w-full max-w-2xl">
-                    <View className="my-4">
-
-                      <View className="flex-row items-center justify-between">
-                        <Text className={`text-lg font-semibold font-merriweather ${subheadingText}`}>Write a Story</Text>
-                        <TouchableOpacity
-                          onPress={() => {
-                            router.replace({
-                              pathname: "/(tabs)/memories/ideas",
-                              params: { tab: "note" }
-                            })
-                          }}
-                          activeOpacity={0.9}
-                          className={`${ideaButtonClass} flex-row items-center px-4 py-2 rounded-lg`}>
-                          <MaterialCommunityIcons name="lightbulb-on-outline" size={16} color="#fff" />
-                          <Text className="ml-2 text-white text-sm">Ideas</Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      {params.selectedPrompt ?
-                        <View className={`w-full p-4 mt-4 rounded-md ${ideaPromptClass}`}>
-                          <View className="flex-row justify-between">
-                            <Text className={`font-semibold text-lg ${isDark ? "text-gray-100" : "text-slate-800"}`}>Recording Prompt:</Text>
-                          </View>
-                          <Text className={`${isDark ? "text-gray-400" : "text-slate-400 "} mt-1 font-semibold`}>{params.selectedPrompt}</Text>
+                    {params.selectedPrompt ?
+                      <View className={`w-full p-4 my-4 rounded-md ${ideaPromptClass}`}>
+                        <View className="flex-row justify-between">
+                          <Text className={`font-semibold text-lg ${isDark ? "text-gray-100" : "text-slate-800"}`}>Recording Prompt:</Text>
                         </View>
-
-                        : null}
-                    </View>
+                        <Text className={`${isDark ? "text-gray-400" : "text-slate-400 "} mt-1 font-semibold`}>{params.selectedPrompt}</Text>
+                      </View>
+                      : null}
 
                     <View className={`rounded-lg p-6 mb-6 ${secondaryCard}`}>
                       <ImageNarration
@@ -1349,13 +1331,53 @@ const RecordLegacyScreen = () => {
                         userId={user?.id}
                         childrenOptions={childOptions}
                         onSaved={(id: string) => {
-                          router.replace("(tabs)/memories")
+                          router.replace({ pathname: '(tabs)/memories', params: { defaultTab: 'note' } })
                         }}
                         onSelectChildren={(ids: string[]) => setSelectedChildren?.(ids)}
                       />
                     </View>
                   </View>
                 }
+
+                {/* Footnote links to switch modes — hidden when camera is active */}
+                {!(tab === 'video' && (showPreview || videoUri)) && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 24, marginBottom: 16 }}>
+                  <Text style={{ fontSize: 13, color: isDark ? '#9ca3af' : '#6B7280' }}>Or: </Text>
+                  {tab === 'video' && (
+                    <>
+                      <TouchableOpacity onPress={() => setTab('audio')} activeOpacity={0.7}>
+                        <Text style={{ fontSize: 13, color: isDark ? '#D4A853' : '#1B2838', fontWeight: '600' }}>Upload a Photo</Text>
+                      </TouchableOpacity>
+                      <Text style={{ fontSize: 13, color: isDark ? '#9ca3af' : '#6B7280' }}> · </Text>
+                      <TouchableOpacity onPress={() => setTab('note')} activeOpacity={0.7}>
+                        <Text style={{ fontSize: 13, color: isDark ? '#D4A853' : '#1B2838', fontWeight: '600' }}>Write a Note</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                  {tab === 'audio' && (
+                    <>
+                      <TouchableOpacity onPress={() => setTab('video')} activeOpacity={0.7}>
+                        <Text style={{ fontSize: 13, color: isDark ? '#D4A853' : '#1B2838', fontWeight: '600' }}>Record a Video</Text>
+                      </TouchableOpacity>
+                      <Text style={{ fontSize: 13, color: isDark ? '#9ca3af' : '#6B7280' }}> · </Text>
+                      <TouchableOpacity onPress={() => setTab('note')} activeOpacity={0.7}>
+                        <Text style={{ fontSize: 13, color: isDark ? '#D4A853' : '#1B2838', fontWeight: '600' }}>Write a Note</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                  {tab === 'note' && (
+                    <>
+                      <TouchableOpacity onPress={() => setTab('video')} activeOpacity={0.7}>
+                        <Text style={{ fontSize: 13, color: isDark ? '#D4A853' : '#1B2838', fontWeight: '600' }}>Record a Video</Text>
+                      </TouchableOpacity>
+                      <Text style={{ fontSize: 13, color: isDark ? '#9ca3af' : '#6B7280' }}> · </Text>
+                      <TouchableOpacity onPress={() => setTab('audio')} activeOpacity={0.7}>
+                        <Text style={{ fontSize: 13, color: isDark ? '#D4A853' : '#1B2838', fontWeight: '600' }}>Upload a Photo</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+                )}
               </View>
 
             </KeyboardAvoidingView>

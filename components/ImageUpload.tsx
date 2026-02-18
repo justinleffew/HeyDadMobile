@@ -53,14 +53,28 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ imageFile, setImageFile }) =>
         <TouchableOpacity
           onPress={pickImage}
           activeOpacity={0.8}
-          className={`border-2 border-dashed border-slate-300 ${isDark ? "bg-gray-900" : "bg-slate-50"} rounded-xl py-8 items-center justify-center`}
+          style={{
+            borderRadius: 14,
+            backgroundColor: isDark ? '#1f2937' : '#F5F0E8',
+            paddingVertical: 28,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.08,
+            shadowRadius: 8,
+            elevation: 3,
+          }}
         >
-          <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center mb-3">
-            <Ionicons name="image-outline" size={32} color="#64748b" />
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: isDark ? '#374151' : '#EDE8E0', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+            <Ionicons name="camera-outline" size={28} color="#D4A853" />
           </View>
 
-          <Text className={`${isDark ? "text-gray-100" : "text-slate-600"} font-medium text-lg mb-1`}>
-            Add a photo (optional)
+          <Text style={{ fontSize: 16, fontWeight: '500', color: isDark ? '#f3f4f6' : '#1B2838', marginBottom: 4 }}>
+            Add a photo to set the scene
+          </Text>
+          <Text style={{ fontSize: 13, color: isDark ? '#6b7280' : '#94a3b8' }}>
+            Optional
           </Text>
         </TouchableOpacity>
       ) : (

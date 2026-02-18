@@ -11,7 +11,7 @@ import { useTheme } from "../providers/ThemeProvider";
 
 const { width, height } = Dimensions.get('window')
 
-export default function NotesModal({ onClose, title, notes, created_at, visible }) {
+export default function NotesModal({ onClose, title, notes, created_at, visible = true }) {
   const { colorScheme } = useTheme();
   const isDark = colorScheme === 'dark';
 
