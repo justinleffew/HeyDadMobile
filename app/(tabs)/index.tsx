@@ -10,7 +10,7 @@ import NotesModal from 'components/NotesModal';
 import VideoPlayerWithNotes from 'components/VideoPlayerWithNotes';
 import { supabase } from 'utils/supabase';
 import { useTheme } from 'providers/ThemeProvider';
-import { LinearGradient } from 'expo-linear-gradient';
+// LinearGradient removed — no longer used after hero CTA redesign
 import { useProfileAccess } from 'hooks/useProfileAccess';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PricingModal from 'components/PricingModal';
@@ -445,64 +445,86 @@ export default function HomeScreen() {
       <StatusBar barStyle="light" backgroundColor="#1e293b" />
       <ScrollView
         stickyHeaderIndices={[1]}
-        className={`flex-1 ${isDark ? "bg-gray-900" : "bg-gray-100"}`}>
+        className={`flex-1`}
+        style={{ backgroundColor: isDark ? '#111827' : '#F8F7F5' }}>
         <View className="px-6 pt-4 mt-4">
           <Text
             className={`text-3xl font-merriweather ${isDark ? "text-gray-100" : "text-slate-800 "} mb-2`}>Home</Text>
 
           <Text className="text-gray-400 mb-6 leading-5 font-semibold">
-            Record something now. Talk about a photo, add a quick note, or record a video
+            One day, this will mean everything.
           </Text>
         </View>
 
 
         <View className="px-6">
-          <LinearGradient
-            colors={["#D4B996", "#C2A16C", "#D4B996"]}
-            end={{ x: 1, y: 0 }}
-            className="fflex-row overflow-hidden mb-6 rounded-2xl shadow-md"
-            style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 24, paddingVertical: 16, paddingLeft: 14, paddingRight: 24, borderRadius: 16 }} >
-
-            <View style={{ width: "70%" }}>
-
-              {isPowerDad ?
-                <Text className={`text-white font-bold`}>
-                  You have unlimited stories
-                </Text>
-                :
-                videosRemaining ?
-                  <Text className={`text-white text-sm font-bold`}>
-                    {typeof videosRemaining === 'number'
-                      ? `You have ${videosRemaining} stories remaining`
-                      : 'Videos remaining: Not set'}
-                  </Text>
-                  : <Text style={{ width: trialStartDate ? "90%" : "100%" }} className={`text-white font-bold`}>
-                    {trialStartDate ? `You have ${Math.max(0, getDateDiff())} days left of your free trial` : "You have no stories available"}
-                  </Text>
-              }
-              {
-                !trialStartDate && !isPowerDad ?
-                  <Text className={`mt-px ml-px text-white text-sm`}>
-                    Purchase a story pack here
-                  </Text>
-
-                  : null}
-
-
-            </View>
-
-
-            <TouchableOpacity
-              onPress={() => {
-                setShowPricingModal(true)
-              }}
-              accessibilityRole="button"
-              className="my-auto p-2 px-3 border items-center justify-center bg-[#031329] rounded-full">
-              <Text className={`text-white text-xs font-bold`}>
-                {isPowerDad ? subscriptionInterval === "year" ? "Annual Plan" : "Monthly Plan" : "Get Story Pack"}
+          {/* Hero CTA — personalized recording prompt */}
+          <View
+            style={{
+              backgroundColor: isDark ? '#1f2937' : '#ffffff',
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 24,
+              borderWidth: 1,
+              borderColor: isDark ? '#374151' : '#e8e5e0',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.10,
+              shadowRadius: 12,
+              elevation: 4,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <Ionicons name="videocam" size={20} color="#c4a471" />
+              <Text style={{ marginLeft: 8, fontSize: 13, fontWeight: '600', color: '#c4a471' }}>
+                TODAY'S STORY
               </Text>
+            </View>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: isDark ? '#f3f4f6' : '#1e293b',
+                marginBottom: 4,
+              }}
+            >
+              {children.length > 0
+                ? `Record a video for ${children[0].name}`
+                : 'Record your first story'}
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: isDark ? '#9ca3af' : '#6b7280',
+                marginBottom: 16,
+                lineHeight: 20,
+              }}
+            >
+              {children.length > 0
+                ? "They'll thank you for this someday."
+                : 'Add a child in the Children tab to get started.'}
+            </Text>
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: '(tabs)/memories/capture',
+                  params: { defaultTab: 'video' },
+                })
+              }
+              activeOpacity={0.8}
+              style={{
+                backgroundColor: '#c4a471',
+                borderRadius: 12,
+                paddingVertical: 14,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="videocam-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Start Recording</Text>
             </TouchableOpacity>
-          </LinearGradient>
+          </View>
 
           <Text className={`${isDark ? "text-gray-100" : "text-slate-800"} text-xl font-semibold font-merriweather mb-4`}>
             Story Prompts
@@ -526,15 +548,29 @@ export default function HomeScreen() {
                   borderRadius: 14,
                   padding: 16,
                   borderWidth: 1,
-                  borderColor: isDark ? '#374151' : '#e5e7eb',
+                  borderColor: isDark ? '#374151' : '#e8e5e0',
+                  borderLeftWidth: 3,
+                  borderLeftColor: '#c4a471',
                   shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.05,
-                  shadowRadius: 3,
-                  elevation: 2,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 6,
+                  elevation: 3,
                 }}
               >
-                <Text style={{ fontSize: 28, marginBottom: 8 }}>{p.emoji}</Text>
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    backgroundColor: isDark ? '#374151' : '#FBF7F0',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 10,
+                  }}
+                >
+                  <Text style={{ fontSize: 22 }}>{p.emoji}</Text>
+                </View>
                 <Text
                   style={{ fontSize: 15, fontWeight: '700', marginBottom: 4, color: isDark ? '#f3f4f6' : '#1e293b' }}
                   numberOfLines={2}
@@ -552,61 +588,105 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View className="px-6">
-          <Text className={`${isDark ? "text-gray-100" : "text-slate-800 "} text-xl font-semibold font-merriweather mb-4`}>
-            Record Your Own Thing
+        {/* Your Legacy So Far — stats section */}
+        <View className="px-6 mt-2 mb-4">
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: '600',
+              color: isDark ? '#f3f4f6' : '#1e293b',
+              marginBottom: 14,
+              fontFamily: 'merriweather',
+            }}
+          >
+            Your Legacy So Far
           </Text>
-          <View className="flex-row items-center h-32 w-full">
-
-            <Link href={{
-              pathname: "(tabs)/memories/capture",
-              params: { defaultTab: "audio" }
-            }} asChild>
-              <TouchableOpacity
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            {[
+              {
+                label: 'Total Stories',
+                value: videos.length + narrations.length,
+                icon: 'book-outline' as const,
+              },
+              {
+                label: 'This Month',
+                value: (() => {
+                  const now = new Date();
+                  const thisMonth = now.getMonth();
+                  const thisYear = now.getFullYear();
+                  return (
+                    videos.filter((v) => {
+                      const d = new Date(v.created_at);
+                      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+                    }).length +
+                    narrations.filter((n) => {
+                      const d = new Date(n.created_at);
+                      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+                    }).length
+                  );
+                })(),
+                icon: 'calendar-outline' as const,
+              },
+              {
+                label: 'Kids Watching',
+                value: children.length,
+                icon: 'people-outline' as const,
+              },
+            ].map((stat, i) => (
+              <View
+                key={i}
                 style={{
-                  borderColor: "rgba(113,124,142,0.2)"
+                  flex: 1,
+                  backgroundColor: isDark ? '#1f2937' : '#ffffff',
+                  borderRadius: 14,
+                  padding: 16,
+                  marginHorizontal: i === 1 ? 8 : 0,
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: isDark ? '#374151' : '#e8e5e0',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 6,
+                  elevation: 3,
                 }}
-                className={`border h-full flex-1 rounded-xl items-center justify-center ${isDark ? 'bg-[#1f2937] border-gray-700' : 'bg-white border-gray-100'}`}>
-                <View className={`${isDark ? 'bg-gray-900' : 'bg-slate-800'}  w-16 h-16 rounded-full items-center justify-center`}>
-                  <Ionicons name="image-outline" size={20} color="white" />
+              >
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: isDark ? '#374151' : '#FBF7F0',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 8,
+                  }}
+                >
+                  <Ionicons name={stat.icon} size={18} color="#c4a471" />
                 </View>
-                <Text className={`text-sm mt-2 font-semibold ${isDark ? "text-gray-100" : "text-slate-800 "}`}>Tell a Story</Text>
-              </TouchableOpacity>
-            </Link>
-            <Link
-              href={{
-                pathname: "(tabs)/memories/capture",
-                params: { defaultTab: "video" }
-              }}
-              asChild>
-              <TouchableOpacity
-                style={{
-                  borderColor: "rgba(113,124,142,0.2)"
-                }}
-                className={`border ml-2  ${isDark ? 'bg-[#1f2937] border-gray-700' : 'bg-white border-gray-100'} h-full flex-1 rounded-xl items-center justify-center`}>
-                <View className={`${isDark ? 'bg-gray-900' : 'bg-slate-800'}  w-16 h-16 rounded-full items-center justify-center`}>
-                  <Ionicons name="videocam-outline" size={20} color="white" />
-                </View>
-                <Text className={`text-sm mt-2 font-semibold ${isDark ? "text-gray-100" : "text-slate-800 "}`}>Video Story</Text>
-              </TouchableOpacity>
-            </Link>
-
-            <Link
-              href={{
-                pathname: "(tabs)/memories/capture",
-                params: { defaultTab: "note" }
-              }} asChild>
-              <TouchableOpacity
-                style={{
-                  borderColor: "rgba(113,124,142,0.2)"
-                }}
-                className={`border ml-2  ${isDark ? 'bg-[#1f2937] border-gray-700' : 'bg-white border-gray-100'} h-full flex-1 rounded-xl items-center justify-center`}>
-                <View className={`${isDark ? 'bg-gray-900' : 'bg-slate-800'}  w-16 h-16 rounded-full items-center justify-center`}>
-                  <Ionicons name="pencil-outline" size={20} color="white" />
-                </View>
-                <Text className={`text-sm mt-2 font-semibold ${isDark ? "text-gray-100" : "text-slate-800 "}`}>Write a Story</Text>
-              </TouchableOpacity>
-            </Link>
+                <Text
+                  style={{
+                    fontSize: 22,
+                    fontWeight: '700',
+                    color: isDark ? '#f3f4f6' : '#1e293b',
+                    marginBottom: 2,
+                  }}
+                >
+                  {stat.value}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '600',
+                    color: isDark ? '#9ca3af' : '#6b7280',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  {stat.label}
+                </Text>
+              </View>
+            ))}
           </View>
         </View>
 
@@ -680,6 +760,9 @@ export default function HomeScreen() {
           ) : null}
 
         </View>
+
+        {/* Bottom spacing */}
+        <View style={{ height: 32 }} />
       </ScrollView>
 
       <PricingModal

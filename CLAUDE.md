@@ -162,25 +162,84 @@ heydad-mobile-main/
 - Decision: Used direct Supabase queries from client (no server API) since the web repo uses server-side JWT sessions but mobile stores session locally
 - Decision: Did NOT create new `kid_love_events` table — assumes it already exists from web repo migrations
 
+## Changelog — Round 2 Fixes (Post-Testing)
+
+### Fix 1: Kids Code Entry Validation Bug — ✅ Complete
+- Files modified: `app/kids/code-entry.tsx`
+- **Root cause**: Used `.single()` which throws `PGRST116` error when no rows found, making it indistinguishable from real DB/RLS errors
+- Changed `.single()` to `.maybeSingle()` — returns `null` instead of an error when no rows match
+- Split error handling: DB/RLS errors now show "Something went wrong" vs invalid code shows "That code didn't work"
+- Added `console.error` logging for real errors to aid debugging
+- Catch block now also shows "Something went wrong" instead of masking JS errors as invalid codes
+- Note: `toUpperCase()` normalization is correct — access code alphabet (`23456789ABCDEFGHJKLMNPQRSTUVWXYZ`) is all uppercase
+- **Important**: If codes still fail, check RLS policies on `children` table — anon key needs select access on `access_code` column
+
+### Fix 6: Update Home Screen Subtitle — ✅ Complete
+- Files modified: `app/(tabs)/index.tsx`
+- Changed subtitle from "Record something now. Talk about a photo, add a quick note, or record a video" to "One day, this will mean everything."
+
+### Fix 3: Remove "Record Your Own Thing" Section — ✅ Complete
+- Files modified: `app/(tabs)/index.tsx`
+- Removed entire "Record Your Own Thing" section (title + 3 icon buttons: Tell a Story, Video Story, Write a Story)
+- These actions are still accessible via the prompt cards and the hero CTA button
+
+### Fix 2: Replace Subscription Banner with Personalized Hero CTA — ✅ Complete
+- Files modified: `app/(tabs)/index.tsx`
+- Removed `LinearGradient` import (no longer used)
+- Removed old gold gradient banner showing subscription/trial status and "Get Story Pack" button
+- Added new hero CTA card with:
+  - "TODAY'S STORY" label with videocam icon in gold
+  - Personalized title: "Record a video for {child_name}" (uses first child's name, or "Record your first story" if no children)
+  - Warm subtitle: "They'll thank you for this someday."
+  - Gold "Start Recording" button navigating to video capture
+- Dark mode support with appropriate background/text colors
+- Card has white background, rounded corners, subtle border and shadow
+
+### Fix 4: "Your Legacy So Far" Stats Section — ✅ Complete
+- Files modified: `app/(tabs)/index.tsx`
+- Added new section between Story Prompts and modals area
+- Three stat cards in a row:
+  - **Total Stories**: `videos.length + narrations.length`
+  - **This Month**: count of videos + narrations created in current calendar month
+  - **Kids Watching**: `children.length`
+- Each card has: icon in warm circle background, large number, uppercase label
+- Gold accent icons (`#c4a471`), consistent card styling with border and shadow
+- Dark mode support
+
+### Fix 5: Visual Depth Pass — ✅ Complete
+- Files modified: `app/(tabs)/index.tsx`
+- **Background**: Changed light mode from `bg-gray-100` (#f3f4f6) to warm gray `#F8F7F5`
+- **Card borders**: Changed from `#e5e7eb` to warmer `#e8e5e0` in light mode
+- **Hero CTA shadows**: Increased from `shadowOpacity: 0.08, shadowRadius: 8` to `0.10, 12`
+- **Prompt card shadows**: Increased from `shadowOpacity: 0.05, shadowRadius: 3` to `0.08, 6`
+- **Prompt cards**: Added gold left border (`borderLeftWidth: 3, borderLeftColor: '#c4a471'`)
+- **Emoji circles**: Wrapped prompt emojis in warm-toned circles (`#FBF7F0` light, `#374151` dark)
+- **Stat card shadows**: Increased to match prompt cards
+- **Stat icon backgrounds**: Changed to warm `#FBF7F0` (light mode)
+- **Bottom spacing**: Added 32px bottom padding to ScrollView content
+- All elevation values increased from 2 to 3–4 for Android depth
+
 ## Known Issues
 - `kid_love_events` table and `increment_love` RPC must exist in Supabase (created by web repo migration `20260210_kid_love_events.sql`). If the migration hasn't been applied, love events will fail silently.
 - `PocketDadCard.tsx` and `PocketDadSignupModal.tsx` are dead code — can be safely deleted if desired.
 - `TryThisCard.tsx` is now dead code — only used by the old single-prompt card.
 - The kids feed doesn't have audio playback for `audio` type stories — it displays them visually but doesn't auto-play the audio. This could be added as a follow-up.
-- Access code validation uses direct Supabase query (no RLS policy check). Ensure the `children` table has appropriate RLS policies or that the anon key has select access on `children.access_code`.
+- Access code validation now uses `.maybeSingle()` for proper error handling. If codes still fail, verify RLS policies on `children` table allow anon select on `access_code`.
+- `LinearGradient` from `expo-linear-gradient` is no longer imported in `index.tsx` — the package is still a dependency (used elsewhere) but the import comment can be removed if desired.
 
-## Testing Notes
-- [ ] Dad can log in via email/password, Apple, and Google — all still work
-- [ ] Kid can enter a valid code and see the feed
-- [ ] Kid entering an invalid code gets a clear error (shake + inline message)
-- [ ] Kid feed auto-plays videos, pauses on swipe
-- [ ] Kid feed double-tap shows heart animation
-- [ ] Kid can exit the feed via three-dot menu
-- [ ] Home screen shows 4 random prompts from the pool of 10
-- [ ] Home screen has no Pocket Dad references anywhere
-- [ ] Dad Chat has no excess whitespace above the header
-- [ ] All screens have consistent typography, spacing, and colors
-- [ ] Sign-in button shows gold color when form is filled
-- [ ] Access codes display in monospace font on Children screen
+## Testing Notes — Round 2
+- [ ] Kid code entry works with valid codes (no false rejections)
+- [ ] Kid code entry shows "Something went wrong" for DB errors vs "That code didn't work" for invalid codes
+- [ ] Home screen subtitle reads "One day, this will mean everything."
+- [ ] No "Record Your Own Thing" section on home screen
+- [ ] Hero CTA shows "Record a video for {child_name}" with child's name
+- [ ] Hero CTA shows "Record your first story" if no children added
+- [ ] "Start Recording" button navigates to video capture
+- [ ] "Your Legacy So Far" stats show correct counts
+- [ ] "This Month" stat correctly counts current month's stories
+- [ ] Warm gray background (#F8F7F5) visible in light mode
+- [ ] Prompt cards have gold left border accent
+- [ ] Prompt emojis appear in warm circular backgrounds
+- [ ] All cards have visible depth/shadow
+- [ ] Dark mode still renders correctly across all new sections
 - [ ] App works on iPhone SE through iPhone 15 Pro Max
-- [ ] No "Pocket Dad" string appears in the UI (still exists in Dad Chat API calls, which is expected)

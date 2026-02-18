@@ -106,13 +106,25 @@ export default function KidsCodeEntryScreen() {
     setError('');
 
     try {
+      // Use maybeSingle() instead of single() so "no rows" returns null, not an error
       const { data: child, error: queryError } = await supabase
         .from('children')
         .select('id, name, user_id, birthdate')
         .eq('access_code', fullCode.trim())
-        .single();
+        .maybeSingle();
 
-      if (queryError || !child) {
+      if (queryError) {
+        // Real database / RLS error — log it for debugging
+        console.error('Code lookup error:', queryError.code, queryError.message);
+        setError('Something went wrong. Please try again.');
+        triggerShake();
+        setCode(Array(CODE_LENGTH).fill(''));
+        setTimeout(() => inputRefs.current[0]?.focus(), 300);
+        return;
+      }
+
+      if (!child) {
+        // No matching row — invalid code
         setError("That code didn't work. Try again!");
         triggerShake();
         setCode(Array(CODE_LENGTH).fill(''));
@@ -134,7 +146,8 @@ export default function KidsCodeEntryScreen() {
       // Navigate to the kids feed
       router.replace('/kids/feed');
     } catch (err) {
-      setError("That code didn't work. Try again!");
+      console.error('Unexpected error during code validation:', err);
+      setError('Something went wrong. Please try again.');
       triggerShake();
       setCode(Array(CODE_LENGTH).fill(''));
       setTimeout(() => inputRefs.current[0]?.focus(), 300);
