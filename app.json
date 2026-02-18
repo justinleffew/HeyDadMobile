@@ -4,12 +4,27 @@
     "slug": "heydad",
     "scheme": "com.heydad",
     "version": "1.0.4",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+
+    "icon": "./assets/icon.png",
+
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+
+    "assetBundlePatterns": ["**/*"],
+
     "web": {
       "favicon": "./assets/favicon.png"
     },
+
     "experiments": {
       "tsconfigPaths": true
     },
+
     "plugins": [
       "expo-router",
       "expo-font",
@@ -23,19 +38,10 @@
       "expo-iap",
       "expo-web-browser"
     ],
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+
     "ios": {
       "buildNumber": "2",
+      "icon": "./assets/icon.png",
       "usesAppleSignIn": true,
       "supportsTablet": false,
       "bundleIdentifier": "com.heydadllc.heydad",
@@ -45,6 +51,7 @@
         "NSMicrophoneUsageDescription": "Hey Dad needs access to your microphone to record your audio stories."
       }
     },
+
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -52,12 +59,14 @@
       },
       "package": "com.hey.dad"
     },
+
     "extra": {
       "router": {},
       "eas": {
         "projectId": "8e7b9a03-31bf-46d9-a35e-9800bde33609"
       }
     },
+
     "owner": "justinheydad"
   }
 }
