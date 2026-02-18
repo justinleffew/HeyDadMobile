@@ -7,11 +7,11 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "ios":{
-        "simulator":false
+      "ios": {
+        "simulator": false
       }
     },
-   "development-simulator": {
+    "development-simulator": {
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
@@ -22,10 +22,19 @@
       "distribution": "internal"
     },
     "production": {
+      "distribution": "store",
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "image": "latest"
       },
-      "autoIncrement": true
+      "autoIncrement": true,
+      "cache": {
+        "disabled": true
+      },
+      "env": {
+        "EXPO_PACKAGER_CACHE_DIR": "/tmp/expo-cache",
+        "EXPO_USE_METRO_WORKSPACE_ROOT": "1"
+      }
     }
   },
   "submit": {
