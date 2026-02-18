@@ -1,4 +1,4 @@
-import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Clipboard from "expo-clipboard";
@@ -135,8 +135,8 @@ const ChildrenGrid = ({
                   </Text>
                   {child.access_code ? (
                     <Text
-                      className={`mt-2 text-2xl font-bold ${codeValueClass}`}
-                      style={{ letterSpacing: 6 }}
+                      className={`mt-2 text-3xl font-bold ${codeValueClass}`}
+                      style={{ letterSpacing: 8, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}
                     >
                       {child.access_code}
                     </Text>

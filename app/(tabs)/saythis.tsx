@@ -344,7 +344,7 @@ export default function DadChatScreen() {
         keyboardVerticalOffset={0}
       >
         {/* Header */}
-        <View className={`flex-row items-center justify-between px-4 py-3 border-b ${borderColor}`}>
+        <View className={`flex-row items-center justify-between px-4 py-2 border-b ${borderColor}`}>
           <View className="flex-1">
             <Text className={`text-xl font-merriweather ${textPrimary}`}>Dad Chat</Text>
             {selectedChild ? (

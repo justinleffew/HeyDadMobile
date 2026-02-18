@@ -108,7 +108,7 @@ export default function TabLayout() {
           tabBarInactiveTintColor: isDark ? '#cbd5f5' : '#94a3b8',
           tabBarLabelStyle: {
             fontSize: 10,
-            fontWeight: '500',
+            fontWeight: '600',
             marginTop: 4,
           },
         }}

@@ -57,6 +57,7 @@ const RootLayoutNav = () => {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor },
+          animation: 'fade',
         }}
       >
         <Stack.Screen

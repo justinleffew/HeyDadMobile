@@ -5,12 +5,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { Link, useRouter } from 'expo-router';
 import { useAuth } from 'hooks/useAuth';
-import TryThisCard from 'components/TryThisCard';
 import AudioPlayer from 'components/AudioPlayer';
-import PocketDadCard from 'components/PocketDadCard';
-import { getAllCategories } from 'constants';
 import NotesModal from 'components/NotesModal';
-import { getPromptsByCategory } from 'constants';
 import VideoPlayerWithNotes from 'components/VideoPlayerWithNotes';
 import { supabase } from 'utils/supabase';
 import { useTheme } from 'providers/ThemeProvider';
@@ -18,6 +14,64 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useProfileAccess } from 'hooks/useProfileAccess';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PricingModal from 'components/PricingModal';
+
+const STORY_PROMPTS = [
+  {
+    emoji: "\u{1F4D6}",
+    title: "Read Their Favorite Book",
+    subtitle: "Record yourself reading it aloud — trust us, they'll replay this forever"
+  },
+  {
+    emoji: "\u{1F602}",
+    title: "The Funniest Thing They Ever Did",
+    subtitle: "That story you always tell at family dinners? Record it."
+  },
+  {
+    emoji: "\u{1F3C6}",
+    title: "The Moment You Were Most Proud",
+    subtitle: "Tell them about the day they blew you away"
+  },
+  {
+    emoji: "\u{1F319}",
+    title: "Tonight's Bedtime Story",
+    subtitle: "Make one up, read one, or just say goodnight — they'll love it"
+  },
+  {
+    emoji: "\u{1F4AA}",
+    title: "When Life Gets Hard",
+    subtitle: "The advice you'd give them when they're struggling and you're not there"
+  },
+  {
+    emoji: "\u{1F389}",
+    title: "Your Favorite Birthday Memory",
+    subtitle: "A birthday party, a gift, a cake disaster — whatever makes you smile"
+  },
+  {
+    emoji: "\u{1F3E0}",
+    title: "What Home Means to You",
+    subtitle: "The house, the people, the feeling — paint them a picture"
+  },
+  {
+    emoji: "\u26BE",
+    title: "Teach Them Something",
+    subtitle: "How to throw a ball, tie a tie, change a tire — show them your moves"
+  },
+  {
+    emoji: "\u2708\uFE0F",
+    title: "The Best Trip You Ever Took",
+    subtitle: "Take them somewhere they've never been through your story"
+  },
+  {
+    emoji: "\u2764\uFE0F",
+    title: "Why You Wanted to Be a Dad",
+    subtitle: "The real reason — not the Hallmark version"
+  }
+];
+
+function pickRandomPrompts(count: number) {
+  const shuffled = [...STORY_PROMPTS].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
 
 export default function HomeScreen() {
 
@@ -66,9 +120,7 @@ export default function HomeScreen() {
     );
   };
 
-  const [prompt, setPrompt] = useState<string>("");
-  const [shufflesLeft, setShufflesLeft] = useState<number>(5);
-  const [promptCategory, setPromptCategory] = useState<string>("");
+  const [activePrompts, setActivePrompts] = useState(() => pickRandomPrompts(4));
   const [isDeleting, setIsDeleting] = useState(false);
   const [loading, setLoading] = useState(true)
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -90,27 +142,6 @@ export default function HomeScreen() {
   const [childAvatars, setChildAvatars] = useState<Record<string, string | null>>({});
   const [childCounts, setChildCounts] = useState<any[]>([]);
   const router = useRouter()
-  const dailyKey = () => new Date().toISOString().slice(0, 10);
-
-  const shufflePrompt = () => {
-    const cats = getAllCategories();
-    const cat = cats[Math.floor(Math.random() * cats.length)];
-    const list = getPromptsByCategory(cat.id);
-    const p = list[Math.floor(Math.random() * list.length)];
-    setShufflesLeft((prev) => Math.max(0, prev - 1));
-    setPrompt(p);
-    setPromptCategory(cat.name);
-  };
-
-  useEffect(() => {
-    const cats = getAllCategories();
-    const cat = cats[Math.floor(Math.random() * cats.length)];
-    const list = getPromptsByCategory(cat.id);
-    const p = list[Math.floor(Math.random() * list.length)];
-    setPrompt(p);
-    setPromptCategory(cat.name);
-    setShufflesLeft(5);
-  }, [])
 
   const { user, trialStartDate, showPricingModal, setShowPricingModal } = useAuth()
 
@@ -175,6 +206,7 @@ export default function HomeScreen() {
   }
 
   useFocusEffect(useCallback(() => {
+    setActivePrompts(pickRandomPrompts(4));
     if (!user?.id) return;
     (async () => {
       setLoading(true);
@@ -472,23 +504,53 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </LinearGradient>
 
-          <TryThisCard
-            prompt={prompt}
-            shufflePrompt={shufflePrompt}
-            onRecord={() => router.replace({
-              pathname: "(tabs)/memories/capture",
-              params: {
-                defaultTab: 'audio',
-                selectedPrompt: prompt
-              }
-            })}
-            onBrowseAll={() => router.replace('/(tabs)/memories/ideas')}
-          />
+          <Text className={`${isDark ? "text-gray-100" : "text-slate-800"} text-xl font-semibold font-merriweather mb-4`}>
+            Story Prompts
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 24 }}>
+            {activePrompts.map((p, idx) => (
+              <TouchableOpacity
+                key={idx}
+                onPress={() => router.replace({
+                  pathname: "(tabs)/memories/capture",
+                  params: {
+                    defaultTab: 'audio',
+                    selectedPrompt: p.title
+                  }
+                })}
+                activeOpacity={0.7}
+                style={{
+                  width: '48%',
+                  marginBottom: 12,
+                  backgroundColor: isDark ? '#1f2937' : '#ffffff',
+                  borderRadius: 14,
+                  padding: 16,
+                  borderWidth: 1,
+                  borderColor: isDark ? '#374151' : '#e5e7eb',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.05,
+                  shadowRadius: 3,
+                  elevation: 2,
+                }}
+              >
+                <Text style={{ fontSize: 28, marginBottom: 8 }}>{p.emoji}</Text>
+                <Text
+                  style={{ fontSize: 15, fontWeight: '700', marginBottom: 4, color: isDark ? '#f3f4f6' : '#1e293b' }}
+                  numberOfLines={2}
+                >
+                  {p.title}
+                </Text>
+                <Text
+                  style={{ fontSize: 12, color: isDark ? '#9ca3af' : '#6b7280', lineHeight: 16 }}
+                  numberOfLines={3}
+                >
+                  {p.subtitle}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
-
-        <PocketDadCard onPressCta={
-          () => router.replace("(tabs)/saythis")
-        } />
 
         <View className="px-6">
           <Text className={`${isDark ? "text-gray-100" : "text-slate-800 "} text-xl font-semibold font-merriweather mb-4`}>

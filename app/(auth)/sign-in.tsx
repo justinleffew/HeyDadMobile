@@ -190,10 +190,12 @@ export default function SignInScreen() {
                 <TouchableOpacity
                   onPress={handleSignIn}
                   disabled={isLoading || !email || !password}
-                  className={`w-full py-3 rounded-xl flex-row justify-center items-center ${isLoading || !email || !password
-                    ? 'bg-gray-300 dark:bg-gray-700'
-                    : 'bg-slate-800 dark:bg-slate-700'
-                    }`}
+                  className={`w-full py-3 rounded-xl flex-row justify-center items-center`}
+                  style={{
+                    backgroundColor: isLoading || !email || !password
+                      ? (isDark ? '#374151' : '#d1d5db')
+                      : '#c4a471',
+                  }}
                   activeOpacity={0.9}
                 >
                   {isLoading ? (
@@ -294,6 +296,25 @@ export default function SignInScreen() {
                 </TouchableOpacity>
               </Link>
             </View>
+
+            {/* Kids Portal Divider */}
+            <View className="flex-row items-center mt-8 mb-6">
+              <View className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+              <Text className="mx-4 text-gray-500 dark:text-gray-400 text-sm">Are you a kid?</Text>
+              <View className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+            </View>
+
+            {/* Kids Portal Button */}
+            <Link href="/kids/code-entry" asChild>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={{ backgroundColor: '#1a2332' }}
+                className="w-full py-4 rounded-xl flex-row justify-center items-center"
+              >
+                <Ionicons name="play-circle-outline" size={22} color="white" style={{ marginRight: 10 }} />
+                <Text className="text-white font-semibold text-base">Enter Kid's Code</Text>
+              </TouchableOpacity>
+            </Link>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
