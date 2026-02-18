@@ -297,6 +297,82 @@ heydad-mobile-main/
 - Files modified: `app/(tabs)/saythis.tsx`
 - Changed from "Ask me anything about being a dad..." to "What's on your mind?"
 
+## Changelog — Round 4 Fixes (Post-Testing)
+
+### Fix 5: Rename "Dad Stories" Tab to "Stories" — ✅ Complete
+- Files modified: `app/(tabs)/_layout.tsx`, `app/(tabs)/memories/index.tsx`
+- Changed tab bar label from "Dad Stories" to "Stories" in `_layout.tsx` (line 129)
+- Changed screen title from "Dad Stories" to "Stories" in `memories/index.tsx`
+- Searched codebase — no other user-facing "Dad Stories" strings found
+
+### Fix 6: Stories Screen — Prioritize Video Content — ✅ Complete
+- Files modified: `app/(tabs)/memories/index.tsx`
+- **Default tab**: Changed from `'audio'` to `'video'` in both `useState` and `useEffect`
+- **Tab order**: Reordered from Narration → Video → Quick Note to **Video → Narration → Quick Note**
+- **Video card play button**: Replaced flat `bg-black/20` overlay with semi-transparent white circle (56px, `rgba(255,255,255,0.85)`) with dark navy play icon and shadow
+- **Video card shadows**: Added `shadowOpacity: 0.1, shadowRadius: 8, elevation: 3` to video cards
+- **Delete buttons softened**: Replaced red trash icon + "Delete" text with muted gray ellipsis (`ellipsis-horizontal`) icon across all three tabs (Video, Narration, Quick Note) — less destructive feel, still triggers delete modal
+- Removed unused `setSelectedVideo` prop from `VideoPlayerWithNotes` usage
+
+### Fix 4: Dad Chat — Eliminate Top Padding, Bigger Header — ✅ Complete
+- Files modified: `app/(tabs)/saythis.tsx`
+- **Nuclear padding fix**: Changed `paddingTop: insets.top + 8` to `paddingTop: insets.top` — zero extra padding above safe area
+- **Header title**: Changed from NativeWind `text-xl font-merriweather` to inline style `fontSize: 28, fontWeight: '700'`, color dark navy `#1B2838` (light) / `#f3f4f6` (dark)
+- Header now sits immediately at safe area edge with no extra whitespace
+
+### Fix 2: Quick Note Viewer — Mature Redesign — ✅ Complete
+- Files modified: `components/NotesModal.tsx`
+- **Complete rewrite** — removed all yellow/amber/birthday-card styling
+- Removed: `LinearGradient`, `FontAwesome` star icons, heart icon, amber borders, orange gradient, decorative blobs
+- Added: `useTheme()` hook for dark mode support
+- **New design**:
+  - Clean white background (dark: `#0f172a`) with rounded corners (16px)
+  - Gold accent bar (40x3px, `#D4A853`) above title — subtle brand mark
+  - Left-aligned title (24px bold, dark navy), formatted date (long format with weekday)
+  - Clean body text (16px, 26px line height) in a simple ScrollView
+  - Close button: small circle in top-right corner
+  - Footer: full-width dark navy close button with 12px border radius
+  - No decorative elements — dignified letter-like reading experience
+
+### Fix 1: Record a Story Screen — Brand Identity — ✅ Complete
+- Files modified: `app/(tabs)/memories/capture.tsx`
+- **Background**: Changed light mode from `bg-gray-50` to warm linen `bg-[#F5F3EF]`
+- **Content surface**: Changed from `bg-gray-100` to `bg-[#F5F3EF]`
+- **Section cards**: Changed borders from `border-gray-300` to warm `border-[#e8e5e0]`
+- **Headings**: Changed from `text-slate-600` to dark navy `text-[#1B2838]`
+- **Tab pills**: Active state changed from `bg-gray-800` to `bg-[#1B2838]`, inactive borders to `border-[#d1cdc6]`
+- **CTA buttons**: "Start Camera" and "Save Video" now use gold `#D4A853` background with dark navy text and gold glow shadow
+- **Unlock selector**: Pills changed from `bg-[#c59a5f]` to `bg-[#D4A853]` with warmer inactive borders
+- **Ideas button**: Changed from `bg-slate-800` to `bg-[#1B2838]`
+- **Title**: Changed from NativeWind `text-3xl font-merriweather` to inline style `fontSize: 28, fontWeight: '700'`, dark navy
+- **Save Your Story (step 2)**: Updated heading to inline style 24px bold dark navy
+- **Upload accent**: Changed from green to gold `text-[#D4A853]`
+
+### Fix 3: Video Playback — Fullscreen TikTok-Style — ✅ Complete
+- Files modified: `components/VideoPlayerWithNotes.tsx`
+- **Complete rewrite** — replaced split-view modal with fullscreen immersive player
+- **Fullscreen video**: `Video` component fills entire screen (`SCREEN_WIDTH x SCREEN_HEIGHT`), `resizeMode="cover"`, auto-play, looping
+- **Tap to play/pause**: Single tap toggles playback, shows brief play/pause icon overlay (72px circle, fades after 600ms)
+- **Top overlay**: LinearGradient from black to transparent, contains:
+  - Close button (40px circle, `rgba(0,0,0,0.4)`) — top-left
+  - "Notes" pill button with comment count — top-right
+- **Bottom overlay**: LinearGradient from transparent to black, contains:
+  - Story title (22px bold white)
+  - Date (formatted long date, semi-transparent white)
+  - Gold progress bar (`#D4A853`) showing playback position
+  - Time labels (current / total)
+- **Details panel**: Slides up from bottom (65% screen height) with:
+  - Drag handle bar at top
+  - PanResponder for swipe-down-to-dismiss (threshold: 120px or velocity > 0.5)
+  - Backdrop dismiss on tap
+  - Title, comment count, close button in header
+  - Comment input with gold send button (`#D4A853`)
+  - Timestamped comments with gold accent colors
+  - Reply functionality preserved
+- Removed dependencies on: old split-view layout, `md:` responsive classes, square aspect ratio video
+- Uses `PanResponder` from react-native core (no additional gesture handler dependency needed)
+- Added `LinearGradient` import from `expo-linear-gradient`
+
 ## Known Issues
 - `kid_love_events` table and `increment_love` RPC must exist in Supabase (created by web repo migration `20260210_kid_love_events.sql`). If the migration hasn't been applied, love events will fail silently.
 - `PocketDadCard.tsx` and `PocketDadSignupModal.tsx` are dead code — can be safely deleted if desired.
@@ -325,4 +401,32 @@ heydad-mobile-main/
 - [ ] Send button turns gold when text is entered
 - [ ] Dark mode still renders correctly across all screens
 - [ ] No pronoun references (he'll/she'll/they'll) in any CTA copy
+- [ ] App works on iPhone SE through iPhone 15 Pro Max
+
+## Testing Notes — Round 4
+- [ ] Tab bar shows "Stories" instead of "Dad Stories"
+- [ ] Stories screen defaults to Video tab on first load
+- [ ] Tab order is: Video → Narration → Quick Note
+- [ ] Video cards have white circle play button overlay with shadow
+- [ ] Video cards have subtle shadow elevation
+- [ ] Delete buttons are muted gray ellipsis icons (not red trash icons) on all three tabs
+- [ ] Tapping ellipsis still opens the delete confirmation modal
+- [ ] Dad Chat header has zero extra padding above safe area
+- [ ] Dad Chat title is 28px bold dark navy
+- [ ] Quick Note viewer has clean white/dark background with gold accent bar
+- [ ] Quick Note viewer shows long-format date with weekday
+- [ ] Quick Note viewer has no yellow, hearts, stars, or decorative elements
+- [ ] Record a Story screen has warm linen background (#F5F3EF) in light mode
+- [ ] Record a Story CTA buttons are gold with dark navy text
+- [ ] Unlock selector pills use gold (#D4A853) for active state
+- [ ] Video player opens in fullscreen (fills entire screen)
+- [ ] Tapping video toggles play/pause with brief icon overlay
+- [ ] Video player shows title and date at bottom with gradient overlay
+- [ ] Gold progress bar shows playback position
+- [ ] "Notes" button in top-right opens slide-up details panel
+- [ ] Details panel can be swiped down to dismiss
+- [ ] Tapping backdrop also closes details panel
+- [ ] Comments/notes work correctly in the details panel
+- [ ] Close button in top-left closes the video player
+- [ ] Dark mode renders correctly across all modified screens
 - [ ] App works on iPhone SE through iPhone 15 Pro Max

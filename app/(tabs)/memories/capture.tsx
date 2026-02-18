@@ -99,37 +99,37 @@ const RecordLegacyScreen = () => {
   const addButtonTextClass = 'flex-1 text-center text-white font-medium';
   const formCardClass = isDark ? 'bg-[#1f2937]' : 'bg-white';
   const labelTextClass = isDark ? 'text-gray-200' : 'text-gray-900';
-  const screenBackground = isDark ? 'bg-gray-900' : 'bg-gray-50';
-  const headerBackground = isDark ? '#1f2937' : '#1e293b';
-  const contentSurface = isDark ? 'bg-gray-900' : 'bg-gray-100';
-  const sectionCard = isDark ? 'bg-[#1f2937] border border-gray-700' : 'bg-white border border-gray-300';
+  const screenBackground = isDark ? 'bg-gray-900' : 'bg-[#F5F3EF]';
+  const headerBackground = isDark ? '#1f2937' : '#1B2838';
+  const contentSurface = isDark ? 'bg-gray-900' : 'bg-[#F5F3EF]';
+  const sectionCard = isDark ? 'bg-[#1f2937] border border-gray-700' : 'bg-white border border-[#e8e5e0]';
   const previewBorderClass = isDark ? 'border-gray-600' : 'border-gray-400';
-  const secondaryCard = isDark ? 'bg-[#1f2937] border border-gray-700' : 'bg-white border border-[#23315033]';
-  const headingText = isDark ? 'text-gray-100' : 'text-slate-600';
+  const secondaryCard = isDark ? 'bg-[#1f2937] border border-gray-700' : 'bg-white border border-[#e8e5e0]';
+  const headingText = isDark ? 'text-gray-100' : 'text-[#1B2838]';
   const bodyText = isDark ? 'text-gray-400' : 'text-gray-500';
-  const subheadingText = isDark ? 'text-gray-200' : 'text-slate-700';
-  const tabContainerActive = isDark ? 'bg-gray-700' : 'bg-gray-800';
-  const tabContainerInactive = isDark ? 'border border-gray-600' : 'border border-gray-300';
+  const subheadingText = isDark ? 'text-gray-200' : 'text-[#1B2838]';
+  const tabContainerActive = isDark ? 'bg-gray-700' : 'bg-[#1B2838]';
+  const tabContainerInactive = isDark ? 'border border-gray-600' : 'border border-[#d1cdc6]';
   const tabTextActive = 'text-white';
-  const tabTextInactive = isDark ? 'text-gray-300' : 'text-gray-800';
-  const ideaButtonClass = isDark ? 'bg-slate-700' : 'bg-slate-800';
-  const ideaPromptClass = isDark ? 'bg-[#1f2937] border border-gray-700 shadow-xs' : 'bg-white border border-gray-300';
-  const ctaButton = isDark ? 'bg-gray-700' : 'bg-slate-700';
-  const cancelButtonClass = isDark ? 'flex-1 border border-gray-600 rounded-md px-4 py-2' : 'flex-1 border border-gray-400 rounded-md px-4 py-2';
-  const dashedBorder = isDark ? 'border-gray-600' : 'border-gray-300';
-  const solidBorder = isDark ? 'border-gray-600' : 'border-gray-300';
+  const tabTextInactive = isDark ? 'text-gray-300' : 'text-[#1B2838]';
+  const ideaButtonClass = isDark ? 'bg-slate-700' : 'bg-[#1B2838]';
+  const ideaPromptClass = isDark ? 'bg-[#1f2937] border border-gray-700 shadow-xs' : 'bg-white border border-[#e8e5e0]';
+  const ctaButton = isDark ? 'bg-gray-700' : 'bg-[#D4A853]';
+  const cancelButtonClass = isDark ? 'flex-1 border border-gray-600 rounded-md px-4 py-2' : 'flex-1 border border-[#d1cdc6] rounded-md px-4 py-2';
+  const dashedBorder = isDark ? 'border-gray-600' : 'border-[#d1cdc6]';
+  const solidBorder = isDark ? 'border-gray-600' : 'border-[#d1cdc6]';
   const dashedText = isDark ? 'text-gray-300' : 'text-gray-500';
   const uploadIconColor = isDark ? '#cbd5f5' : '#6B7280';
-  const accentColor = isDark ? '#60A5FA' : '#1D4ED8';
-  const infoHeading = isDark ? 'text-gray-200' : 'text-slate-700';
+  const accentColor = isDark ? '#60A5FA' : '#D4A853';
+  const infoHeading = isDark ? 'text-gray-200' : 'text-[#1B2838]';
   const infoBody = isDark ? 'text-gray-300' : 'text-gray-100';
-  const saveButton = isDark ? 'bg-gray-700' : 'bg-slate-800';
-  const bottomBarBackground = isDark ? 'bg-gray-900' : 'bg-gray-100';
-  const backButton = isDark ? 'border border-gray-600' : 'border border-gray-300';
+  const saveButton = isDark ? 'bg-gray-700' : 'bg-[#1B2838]';
+  const bottomBarBackground = isDark ? 'bg-gray-900' : 'bg-[#F5F3EF]';
+  const backButton = isDark ? 'border border-gray-600' : 'border border-[#d1cdc6]';
   const backButtonText = isDark ? 'text-gray-300' : 'text-gray-600';
   const cancelButtonTextClass = isDark ? 'text-center text-gray-200' : 'text-center text-gray-900';
-  const uploadBorderClass = isDark ? 'border-gray-600' : 'border-gray-400';
-  const uploadAccentTextClass = isDark ? 'text-green-400' : 'text-green-700';
+  const uploadBorderClass = isDark ? 'border-gray-600' : 'border-[#d1cdc6]';
+  const uploadAccentTextClass = isDark ? 'text-green-400' : 'text-[#D4A853]';
   const addButtonClass = (disabled: boolean) => {
     if (disabled) {
       return isDark ? 'bg-gray-600 flex-row items-center px-4 py-2 rounded-md' : 'bg-gray-300 flex-row items-center px-4 py-2 rounded-md';
@@ -673,7 +673,7 @@ const RecordLegacyScreen = () => {
             <TouchableOpacity
               key={val}
               onPress={() => setUnlockType(val)}
-              className={`px-4 py-2 rounded-full border ${sel ? "bg-[#c59a5f] border-[#c59a5f]" : `${isDark ? "border-slate-500" : "border-slate-300"}`
+              className={`px-4 py-2 rounded-full border ${sel ? "bg-[#D4A853] border-[#D4A853]" : `${isDark ? "border-slate-500" : "border-[#d1cdc6]"}`
                 }`}
             >
               <Text className={`font-semibold ${sel ? "text-white" : badgeText} text-sm`}>{label}</Text>
@@ -765,8 +765,8 @@ const RecordLegacyScreen = () => {
               <View className={`flex-1 px-4 ${contentSurface}`}>
                 {/* Title Section */}
                 <View className="mt-8 mb-6">
-                  <Text className={`text-center font-merriweather text-3xl mb-2 ${headingText}`}>Record a Story</Text>
-                  <Text className={`text-lg text-center ${bodyText}`}>
+                  <Text style={{ fontSize: 28, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838', textAlign: 'center', marginBottom: 8 }}>Record a Story</Text>
+                  <Text className={`text-base text-center ${bodyText}`}>
                     Your voice will be there when it matters the most.
                   </Text>
                 </View>
@@ -1185,10 +1185,22 @@ const RecordLegacyScreen = () => {
 
                             setShowPreview(true);
                           }}
-                          className={`mt-4 rounded-lg py-4 mb-4 ${ctaButton}`}>
+                          style={{
+                            marginTop: 16,
+                            borderRadius: 12,
+                            paddingVertical: 16,
+                            marginBottom: 16,
+                            backgroundColor: isDark ? '#374151' : '#D4A853',
+                            shadowColor: isDark ? '#000' : '#D4A853',
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: isDark ? 0.3 : 0.3,
+                            shadowRadius: 8,
+                            elevation: 4,
+                          }}
+                        >
                           <View className="flex-row items-center justify-center">
-                            <Ionicons name="videocam-outline" size={20} color="white" className="mr-2" />
-                            <Text className="text-white font-medium ml-2">Start Camera</Text>
+                            <Ionicons name="videocam-outline" size={20} color={isDark ? 'white' : '#1B2838'} />
+                            <Text style={{ marginLeft: 8, fontWeight: '600', color: isDark ? 'white' : '#1B2838' }}>Start Camera</Text>
                           </View>
                         </TouchableOpacity>
                       ) : null}
@@ -1196,9 +1208,21 @@ const RecordLegacyScreen = () => {
                       {videoUri && !isRecording &&
                         <TouchableOpacity
                           onPress={selectThumbnail}
-                          className={`mt-4 rounded-lg py-4 mb-4 ${ctaButton}`}>
+                          style={{
+                            marginTop: 16,
+                            borderRadius: 12,
+                            paddingVertical: 16,
+                            marginBottom: 16,
+                            backgroundColor: isDark ? '#374151' : '#D4A853',
+                            shadowColor: isDark ? '#000' : '#D4A853',
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.3,
+                            shadowRadius: 8,
+                            elevation: 4,
+                          }}
+                        >
                           <View className="flex-row items-center justify-center">
-                            <Text className="text-white font-medium ml-2">Save Video</Text>
+                            <Text style={{ fontWeight: '600', color: isDark ? 'white' : '#1B2838' }}>Save Video</Text>
                           </View>
                         </TouchableOpacity>
                       }
@@ -1354,7 +1378,7 @@ const RecordLegacyScreen = () => {
               <Text className={`${bodyText} ml-2`}>Back to Recording</Text>
             </TouchableOpacity>
             <View className="mb-6">
-              <Text className={`font-merriweather text-2xl font-medium mb-2 ${headingText}`}>Save Your Story</Text>
+              <Text style={{ fontSize: 24, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838', marginBottom: 8 }}>Save Your Story</Text>
               <Text className={`text-base ${bodyText}`}>
                 Choose who will receive this video and when they'll unlock it.
               </Text>

@@ -382,7 +382,7 @@ export default function DadChatScreen() {
   ), [isDark]);
 
   return (
-    <View className={`flex-1 ${bg}`} style={{ paddingTop: insets.top + 8 }}>
+    <View className={`flex-1 ${bg}`} style={{ paddingTop: insets.top }}>
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -391,7 +391,7 @@ export default function DadChatScreen() {
         {/* Header — tight to safe area */}
         <View className={`flex-row items-center justify-between px-4 pb-2 border-b ${borderColor}`}>
           <View style={{ flex: 1 }}>
-            <Text className={`text-xl font-merriweather ${textPrimary}`}>Dad Chat</Text>
+            <Text style={{ fontSize: 28, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838' }}>Dad Chat</Text>
           </View>
 
           {/* Child selector — avatar chips */}

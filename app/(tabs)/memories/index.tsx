@@ -73,8 +73,7 @@ const NotesList = ({
   primaryTextClass: string;
   metadataTextClass: string;
 }) => {
-  const deleteButtonBackground = isDark ? 'bg-red-500/10' : 'bg-red-50';
-  const iconColor = isDark ? '#f87171' : '#ef4444';
+  const deleteIconColor = isDark ? '#9ca3af' : '#9ca3af';
   const placeholderBackground = isDark ? 'bg-gray-700' : 'bg-gray-200';
 
   return (
@@ -127,11 +126,10 @@ const NotesList = ({
                         thumbnailPath: n.image_path,
                       });
                     }}
-                    className={`ml-auto flex-row items-center justify-end rounded-md py-1 px-2 ${deleteButtonBackground}`}
-                    activeOpacity={0.7}
+                    className="ml-auto p-2"
+                    activeOpacity={0.5}
                   >
-                    <Ionicons name="trash" size={16} color={iconColor} />
-                    <Text className={`ml-2 text-sm font-semibold ${isDark ? 'text-red-300' : 'text-red-500'}`}>Delete</Text>
+                    <Ionicons name="ellipsis-horizontal" size={20} color={deleteIconColor} />
                   </TouchableOpacity>
                 </View>
 
@@ -206,8 +204,7 @@ const VideoList = ({
   cardSurface: string;
   metadataTextClass: string;
 }) => {
-  const deleteButtonBackground = isDark ? 'bg-red-500/10' : 'bg-red-50';
-  const iconColor = isDark ? '#f87171' : '#ef4444';
+  const deleteIconColor = isDark ? '#9ca3af' : '#9ca3af';
   const metaIconColor = isDark ? '#d1d5db' : '#1a1a1a';
 
   return (
@@ -219,26 +216,61 @@ const VideoList = ({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ gap: 16 }}
           renderItem={({ item: v }) => (
-            <View className={`${cardSurface} rounded-lg p-4`}>
+            <View
+              className={`${cardSurface} rounded-lg p-4`}
+              style={{
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+                elevation: 3,
+              }}
+            >
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => handlePlayVideo(v)}
-                className="w-full relative aspect-video bg-dad-dark rounded-lg overflow-hidden mb-4"
+                className="w-full relative aspect-video rounded-lg overflow-hidden mb-4"
+                style={{ backgroundColor: isDark ? '#111827' : '#1e293b' }}
               >
                 {thumbnailUrls[v.id] ? (
-                  <View>
+                  <View className="w-full h-full">
                     <Image source={{ uri: thumbnailUrls[v.id] }} className="w-full h-full" resizeMode="cover" />
-                    <View className="absolute bg-black/20 inset-0 items-center justify-center">
-                      <Ionicons name="play" size={36} color="white" />
+                    <View className="absolute inset-0 items-center justify-center">
+                      <View
+                        style={{
+                          width: 56,
+                          height: 56,
+                          borderRadius: 28,
+                          backgroundColor: 'rgba(255,255,255,0.85)',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          shadowColor: '#000',
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.2,
+                          shadowRadius: 4,
+                          elevation: 4,
+                        }}
+                      >
+                        <Ionicons name="play" size={28} color="#1B2838" style={{ marginLeft: 3 }} />
+                      </View>
                     </View>
                   </View>
                 ) : (
                   <View className="w-full h-full flex items-center justify-center">
-                    <Ionicons name="play" size={16} color="white" />
+                    <View
+                      style={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: 28,
+                        backgroundColor: 'rgba(255,255,255,0.85)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Ionicons name="play" size={28} color="#1B2838" style={{ marginLeft: 3 }} />
+                    </View>
                   </View>
                 )}
-
-                <View className="absolute inset-0 flex items-center justify-center bg-black/30" />
 
                 <View className="absolute bottom-2 left-2 px-2 py-1 rounded-md bg-black/75 flex-row items-center">
                   <Text className="text-sm font-medium text-white">{formatDuration(v.duration)}</Text>
@@ -268,11 +300,10 @@ const VideoList = ({
                       thumbnailPath: v.thumbnail_path,
                     });
                   }}
-                  className={`flex-row items-center justify-end rounded-md py-1 px-2 ${deleteButtonBackground}`}
-                  activeOpacity={0.7}
+                  className="ml-auto p-2"
+                  activeOpacity={0.5}
                 >
-                  <Ionicons name="trash" size={16} color={iconColor} />
-                  <Text className={`ml-2 text-sm font-semibold ${isDark ? 'text-red-300' : 'text-red-500'}`}>Delete</Text>
+                  <Ionicons name="ellipsis-horizontal" size={20} color={deleteIconColor} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -309,8 +340,7 @@ const NarrationList = ({
   metadataTextClass: string;
   getUnlockStatus: (item: any) => { isUnlocked: boolean; label: string };
 }) => {
-  const deleteButtonBackground = isDark ? 'bg-red-500/10' : 'bg-red-50';
-  const iconColor = isDark ? '#f87171' : '#ef4444';
+  const deleteIconColor = isDark ? '#9ca3af' : '#9ca3af';
   const metaIconColor = isDark ? '#d1d5db' : '#1a1a1a';
   const placeholderBackground = isDark ? 'bg-gray-900' : 'bg-slate-800';
 
@@ -358,11 +388,10 @@ const NarrationList = ({
                         thumbnailPath: n.image_path,
                       });
                     }}
-                    className={`ml-auto flex-row items-center px-2 py-1 rounded-md ${deleteButtonBackground}`}
-                    activeOpacity={0.7}
+                    className="ml-auto p-2"
+                    activeOpacity={0.5}
                   >
-                    <Ionicons name="trash" size={16} color={iconColor} />
-                    <Text className={`ml-2 text-sm font-semibold ${isDark ? 'text-red-300' : 'text-red-500'}`}>Delete</Text>
+                    <Ionicons name="ellipsis-horizontal" size={20} color={deleteIconColor} />
                   </TouchableOpacity>
                 </View>
 
@@ -412,7 +441,7 @@ const MemoriesScreen = () => {
   const isDark = colorScheme === 'dark';
   const params = useLocalSearchParams()
   const { defaultTab } = params
-  const [tab, setTab] = useState(defaultTab || 'audio');
+  const [tab, setTab] = useState(defaultTab || 'video');
   const [currentVideo, setCurrentVideo] = useState({});
   const [childFilter, setChildFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -481,7 +510,7 @@ const MemoriesScreen = () => {
   }, [user?.id]))
 
   useEffect(() => {
-    setTab(defaultTab || 'audio')
+    setTab(defaultTab || 'video')
   }, [defaultTab])
 
   const filterAndSort = (items: any[]) => {
@@ -637,7 +666,7 @@ const MemoriesScreen = () => {
     <SafeAreaView className={`flex-1 ${screenBackground}`}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={isDark ? '#1f2937' : '#1e293b'} />
 
-      <Text className={`text-4xl px-4 text-center font-merriweather mt-6 mb-2 ${isDark ? 'text-gray-100' : 'text-slate-600'}`}>Dad Stories</Text>
+      <Text className={`text-4xl px-4 text-center font-merriweather mt-6 mb-2 ${isDark ? 'text-gray-100' : 'text-slate-600'}`}>Stories</Text>
 
       <View className="flex-1 px-4 pb-6">
         <View className={`rounded-lg mt-2 p-4 shadow-sm ${isDark ? 'bg-[#1f2937] border border-gray-700' : 'bg-white'}`}>
@@ -700,20 +729,20 @@ const MemoriesScreen = () => {
 
         <View className="flex-row">
           <TouchableOpacity
-            onPress={() => setTab('audio')}
-            className={`rounded-md min-w-20 h-10 p-2 items-center justify-center ${tab === 'audio' ? 'bg-gray-800' : chipInactiveBorder
-              }`}
-            activeOpacity={0.8}
-          >
-            <Text className={`${tab === 'audio' ? 'text-white' : chipInactiveText} text-sm font-semibold`}>Narration</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
             onPress={() => setTab('video')}
-            className={`ml-2 rounded-md min-w-20 h-10 p-2 items-center justify-center ${tab === 'video' ? 'bg-gray-800' : chipInactiveBorder
+            className={`rounded-md min-w-20 h-10 p-2 items-center justify-center ${tab === 'video' ? 'bg-gray-800' : chipInactiveBorder
               }`}
             activeOpacity={0.8}
           >
             <Text className={`${tab === 'video' ? 'text-white' : chipInactiveText} text-sm font-semibold`}>Video</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setTab('audio')}
+            className={`ml-2 rounded-md min-w-20 h-10 p-2 items-center justify-center ${tab === 'audio' ? 'bg-gray-800' : chipInactiveBorder
+              }`}
+            activeOpacity={0.8}
+          >
+            <Text className={`${tab === 'audio' ? 'text-white' : chipInactiveText} text-sm font-semibold`}>Narration</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setTab('note')}
@@ -833,7 +862,6 @@ const MemoriesScreen = () => {
         <VideoPlayerWithNotes
           selectedVideo={selectedVideo}
           videoUrl={videoUrl}
-          setSelectedVideo={setSelectedVideo}
           onClose={() => {
             setSelectedVideo(null);
             setVideoUrl(null);

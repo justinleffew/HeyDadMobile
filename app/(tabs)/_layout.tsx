@@ -126,7 +126,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="memories"
           options={{
-            title: 'Dad Stories',
+            title: 'Stories',
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="book-outline" size={size} color={color} />
             ),
