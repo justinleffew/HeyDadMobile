@@ -9,10 +9,11 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from 'hooks/useAuth';
 import { supabase } from 'utils/supabase';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -30,6 +31,7 @@ type ChildInfo = {
   id: string;
   name: string;
   birthdate?: string;
+  image_path?: string | null;
 };
 
 const STORAGE_KEY = 'dadchat:messages';
@@ -54,8 +56,10 @@ export default function DadChatScreen() {
   const [loading, setLoading] = useState(false);
   const [children, setChildren] = useState<ChildInfo[]>([]);
   const [selectedChild, setSelectedChild] = useState<ChildInfo | null>(null);
+  const [childAvatars, setChildAvatars] = useState<Record<string, string | null>>({});
   const flatListRef = useRef<FlatList>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const insets = useSafeAreaInsets();
 
   const bg = isDark ? 'bg-gray-900' : 'bg-gray-50';
   const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
@@ -70,12 +74,29 @@ export default function DadChatScreen() {
     (async () => {
       const { data } = await supabase
         .from('children')
-        .select('id,name,birthdate')
+        .select('id,name,birthdate,image_path')
         .eq('user_id', user.id)
         .order('created_at', { ascending: true });
       if (data) {
         setChildren(data);
         if (data.length === 1) setSelectedChild(data[0]);
+        // Build avatar URLs
+        const avatarMap: Record<string, string | null> = {};
+        for (const kid of data) {
+          if (kid.image_path) {
+            try {
+              const { data: urlData, error } = await supabase.storage
+                .from('child-images')
+                .createSignedUrl(kid.image_path, 3600);
+              avatarMap[kid.id] = error ? null : urlData?.signedUrl ?? null;
+            } catch {
+              avatarMap[kid.id] = null;
+            }
+          } else {
+            avatarMap[kid.id] = null;
+          }
+        }
+        setChildAvatars(avatarMap);
       }
     })();
   }, [user?.id]);
@@ -303,21 +324,36 @@ export default function DadChatScreen() {
   );
 
   const renderEmptyState = useCallback(() => (
-    <View className="flex-1 items-center justify-center px-8 pt-20">
+    <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: '20%' }}>
+      {/* Logo mark */}
       <View
-        className={`w-20 h-20 rounded-full items-center justify-center mb-6 ${
-          isDark ? 'bg-gray-800' : 'bg-slate-100'
-        }`}
+        style={{
+          width: 80,
+          height: 80,
+          borderRadius: 40,
+          backgroundColor: isDark ? '#1f2937' : '#F5F0E8',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 20,
+        }}
       >
-        <Ionicons name="chatbubbles-outline" size={36} color="#c4a471" />
+        <Image
+          source={require('../../assets/logo.png')}
+          style={{ width: 48, height: 48 }}
+          resizeMode="contain"
+        />
       </View>
-      <Text className={`text-2xl font-merriweather text-center mb-3 ${textPrimary}`}>
-        Dad Chat
+
+      {/* Header — left aligned */}
+      <Text style={{ fontSize: 22, fontWeight: '600', color: isDark ? '#f3f4f6' : '#1B2838', marginBottom: 8 }}>
+        What's on your mind, Dad?
       </Text>
-      <Text className={`text-base text-center leading-6 mb-8 ${textSecondary}`}>
+      <Text style={{ fontSize: 14, color: '#6B7280', marginBottom: 28, lineHeight: 20 }}>
         Ask anything about being a dad. Get help with activities, tough moments, or just talk it out.
       </Text>
-      <View className="w-full gap-3">
+
+      {/* Suggestion pills — left aligned, warm tint */}
+      <View style={{ gap: 10 }}>
         {[
           'What are fun rainy day activities for a 5 year old?',
           'How do I talk to my kid about a bully at school?',
@@ -326,49 +362,88 @@ export default function DadChatScreen() {
           <TouchableOpacity
             key={suggestion}
             onPress={() => setInput(suggestion)}
-            className={`rounded-xl border px-4 py-3 ${borderColor} ${cardBg}`}
             activeOpacity={0.7}
+            style={{
+              backgroundColor: isDark ? '#1f2937' : '#FBF7F0',
+              borderRadius: 12,
+              paddingHorizontal: 16,
+              paddingVertical: 14,
+              borderLeftWidth: 2,
+              borderLeftColor: '#D4A853',
+              borderWidth: 1,
+              borderColor: isDark ? '#374151' : '#f0ebe3',
+            }}
           >
-            <Text className={`text-sm ${textSecondary}`}>{suggestion}</Text>
+            <Text style={{ fontSize: 14, color: isDark ? '#d1d5db' : '#1B2838' }}>{suggestion}</Text>
           </TouchableOpacity>
         ))}
       </View>
     </View>
-  ), [isDark, textPrimary, textSecondary, borderColor, cardBg]);
+  ), [isDark]);
 
   return (
-    <SafeAreaView className={`flex-1 ${bg}`} edges={['top']}>
+    <View className={`flex-1 ${bg}`} style={{ paddingTop: insets.top + 8 }}>
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
       >
-        {/* Header */}
-        <View className={`flex-row items-center justify-between px-4 py-2 border-b ${borderColor}`}>
-          <View className="flex-1">
+        {/* Header — tight to safe area */}
+        <View className={`flex-row items-center justify-between px-4 pb-2 border-b ${borderColor}`}>
+          <View style={{ flex: 1 }}>
             <Text className={`text-xl font-merriweather ${textPrimary}`}>Dad Chat</Text>
-            {selectedChild ? (
-              <Text className={`text-xs ${textSecondary}`}>
-                Chatting about {selectedChild.name}
-              </Text>
-            ) : null}
           </View>
 
-          {/* Child selector */}
+          {/* Child selector — avatar chips */}
           {children.length > 0 ? (
             <View className="flex-row items-center mr-2">
               {children.map((child) => {
                 const isSelected = selectedChild?.id === child.id;
+                const avatarUrl = childAvatars[child.id];
                 return (
                   <TouchableOpacity
                     key={child.id}
                     onPress={() => setSelectedChild(isSelected ? null : child)}
-                    className={`ml-1 px-3 py-1.5 rounded-full border ${
-                      isSelected ? 'bg-[#c59a5f] border-[#c59a5f]' : borderColor
-                    }`}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      marginLeft: 6,
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 20,
+                      borderWidth: 1.5,
+                      borderColor: isSelected ? '#D4A853' : (isDark ? '#374151' : '#d1d5db'),
+                      backgroundColor: isSelected ? (isDark ? 'rgba(212,168,83,0.15)' : 'rgba(212,168,83,0.08)') : 'transparent',
+                    }}
                   >
+                    {avatarUrl ? (
+                      <Image
+                        source={{ uri: avatarUrl }}
+                        style={{ width: 28, height: 28, borderRadius: 14, marginRight: 6 }}
+                      />
+                    ) : (
+                      <View
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 14,
+                          backgroundColor: '#1B2838',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginRight: 6,
+                        }}
+                      >
+                        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
+                          {child.name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
                     <Text
-                      className={`text-xs font-medium ${isSelected ? 'text-white' : textSecondary}`}
+                      style={{
+                        fontSize: 13,
+                        fontWeight: '600',
+                        color: isSelected ? '#D4A853' : (isDark ? '#9ca3af' : '#6b7280'),
+                      }}
                     >
                       {child.name}
                     </Text>
@@ -413,11 +488,24 @@ export default function DadChatScreen() {
         ) : null}
 
         {/* Input */}
-        <View className={`px-4 py-3 border-t ${borderColor} ${bg}`}>
+        <View
+          style={{
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            borderTopWidth: 1,
+            borderTopColor: isDark ? '#374151' : '#e5e7eb',
+            backgroundColor: isDark ? '#111827' : '#ffffff',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 4,
+            elevation: 3,
+          }}
+        >
           <View className={`flex-row items-end rounded-2xl border ${borderColor} ${inputBg}`}>
             <TextInput
               className={`flex-1 px-4 py-3 text-base max-h-24 ${textPrimary}`}
-              placeholder="Ask me anything about being a dad..."
+              placeholder="What's on your mind?"
               placeholderTextColor={isDark ? '#6b7280' : '#9ca3af'}
               value={input}
               onChangeText={setInput}
@@ -428,19 +516,27 @@ export default function DadChatScreen() {
             <TouchableOpacity
               onPress={sendMessage}
               disabled={!input.trim() || loading}
-              className={`m-1.5 w-10 h-10 rounded-full items-center justify-center ${
-                input.trim() && !loading ? 'bg-slate-700' : isDark ? 'bg-gray-700' : 'bg-gray-200'
-              }`}
+              style={{
+                margin: 6,
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: input.trim() && !loading
+                  ? '#D4A853'
+                  : isDark ? '#374151' : '#e5e7eb',
+              }}
             >
               <Ionicons
                 name="arrow-up"
                 size={20}
-                color={input.trim() && !loading ? 'white' : isDark ? '#6b7280' : '#9ca3af'}
+                color={input.trim() && !loading ? '#fff' : isDark ? '#6b7280' : '#9ca3af'}
               />
             </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }

@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { Image, View, Text, TouchableOpacity, ScrollView, StatusBar, Modal, ActivityIndicator, Alert } from 'react-native';
+import { Image, View, Text, TouchableOpacity, ScrollView, FlatList as RNFlatList, StatusBar, Modal, ActivityIndicator, Alert, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
@@ -10,7 +10,7 @@ import NotesModal from 'components/NotesModal';
 import VideoPlayerWithNotes from 'components/VideoPlayerWithNotes';
 import { supabase } from 'utils/supabase';
 import { useTheme } from 'providers/ThemeProvider';
-// LinearGradient removed — no longer used after hero CTA redesign
+import { LinearGradient } from 'expo-linear-gradient';
 import { useProfileAccess } from 'hooks/useProfileAccess';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PricingModal from 'components/PricingModal';
@@ -68,10 +68,8 @@ const STORY_PROMPTS = [
   }
 ];
 
-function pickRandomPrompts(count: number) {
-  const shuffled = [...STORY_PROMPTS].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
-}
+const PROMPT_CARD_WIDTH = 160;
+const PROMPT_CARD_HEIGHT = 180;
 
 export default function HomeScreen() {
 
@@ -120,7 +118,6 @@ export default function HomeScreen() {
     );
   };
 
-  const [activePrompts, setActivePrompts] = useState(() => pickRandomPrompts(4));
   const [isDeleting, setIsDeleting] = useState(false);
   const [loading, setLoading] = useState(true)
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -206,7 +203,6 @@ export default function HomeScreen() {
   }
 
   useFocusEffect(useCallback(() => {
-    setActivePrompts(pickRandomPrompts(4));
     if (!user?.id) return;
     (async () => {
       setLoading(true);
@@ -444,12 +440,12 @@ export default function HomeScreen() {
     <View className="flex-1">
       <StatusBar barStyle="light" backgroundColor="#1e293b" />
       <ScrollView
-        stickyHeaderIndices={[1]}
         className={`flex-1`}
-        style={{ backgroundColor: isDark ? '#111827' : '#F8F7F5' }}>
+        style={{ backgroundColor: isDark ? '#111827' : '#F5F3EF' }}
+        contentContainerStyle={{ paddingBottom: 100 }}>
         <View className="px-6 pt-4 mt-4">
           <Text
-            className={`text-3xl font-merriweather ${isDark ? "text-gray-100" : "text-slate-800 "} mb-2`}>Home</Text>
+            style={{ fontSize: 24, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838', marginBottom: 8 }}>Home</Text>
 
           <Text className="text-gray-400 mb-6 leading-5 font-semibold">
             One day, this will mean everything.
@@ -458,51 +454,49 @@ export default function HomeScreen() {
 
 
         <View className="px-6">
-          {/* Hero CTA — personalized recording prompt */}
-          <View
+          {/* Hero CTA — dark gradient, premium feel */}
+          <LinearGradient
+            colors={['#1B2838', '#2C3E50']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={{
-              backgroundColor: isDark ? '#1f2937' : '#ffffff',
               borderRadius: 16,
-              padding: 20,
+              padding: 22,
               marginBottom: 24,
-              borderWidth: 1,
-              borderColor: isDark ? '#374151' : '#e8e5e0',
               shadowColor: '#000',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.10,
-              shadowRadius: 12,
-              elevation: 4,
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.20,
+              shadowRadius: 16,
+              elevation: 6,
             }}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-              <Ionicons name="videocam" size={20} color="#c4a471" />
-              <Text style={{ marginLeft: 8, fontSize: 13, fontWeight: '600', color: '#c4a471' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+              <Ionicons name="videocam" size={18} color="#D4A853" />
+              <Text style={{ marginLeft: 8, fontSize: 11, fontWeight: '700', color: '#D4A853', letterSpacing: 1.5, textTransform: 'uppercase' }}>
                 TODAY'S STORY
               </Text>
             </View>
             <Text
               style={{
-                fontSize: 18,
+                fontSize: 22,
                 fontWeight: '700',
-                color: isDark ? '#f3f4f6' : '#1e293b',
-                marginBottom: 4,
+                color: '#FFFFFF',
+                marginBottom: 6,
               }}
             >
-              {children.length > 0
-                ? `Record a video for ${children[0].name}`
-                : 'Record your first story'}
+              {children.length === 0
+                ? 'Record a video for your kids'
+                : `Record a video for ${children[Math.floor(Math.random() * children.length)].name}`}
             </Text>
             <Text
               style={{
                 fontSize: 14,
-                color: isDark ? '#9ca3af' : '#6b7280',
-                marginBottom: 16,
+                color: 'rgba(255,255,255,0.7)',
+                marginBottom: 20,
                 lineHeight: 20,
               }}
             >
-              {children.length > 0
-                ? "They'll thank you for this someday."
-                : 'Add a child in the Children tab to get started.'}
+              This will mean the world one day.
             </Text>
             <TouchableOpacity
               onPress={() =>
@@ -513,90 +507,125 @@ export default function HomeScreen() {
               }
               activeOpacity={0.8}
               style={{
-                backgroundColor: '#c4a471',
+                backgroundColor: '#D4A853',
                 borderRadius: 12,
                 paddingVertical: 14,
                 alignItems: 'center',
                 flexDirection: 'row',
                 justifyContent: 'center',
+                shadowColor: '#D4A853',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 4,
               }}
             >
-              <Ionicons name="videocam-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Start Recording</Text>
+              <Ionicons name="videocam-outline" size={18} color="#1B2838" style={{ marginRight: 8 }} />
+              <Text style={{ color: '#1B2838', fontWeight: '700', fontSize: 16 }}>Start Recording</Text>
             </TouchableOpacity>
-          </View>
+          </LinearGradient>
 
-          <Text className={`${isDark ? "text-gray-100" : "text-slate-800"} text-xl font-semibold font-merriweather mb-4`}>
+          <Text style={{ fontSize: 16, fontWeight: '600', color: isDark ? '#f3f4f6' : '#1B2838', marginBottom: 12 }}>
             Story Prompts
           </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 24 }}>
-            {activePrompts.map((p, idx) => (
+        </View>
+
+        {/* Horizontal prompts slider — full bleed */}
+        <RNFlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={[...STORY_PROMPTS, { emoji: '', title: '', subtitle: '', type: 'see_all' } as any]}
+          keyExtractor={(_, idx) => `prompt-${idx}`}
+          contentContainerStyle={{ paddingHorizontal: 20, gap: 12, marginBottom: 24 }}
+          snapToInterval={PROMPT_CARD_WIDTH + 12}
+          decelerationRate="fast"
+          renderItem={({ item }) => {
+            if ((item as any).type === 'see_all') {
+              return (
+                <TouchableOpacity
+                  onPress={() => router.push('(tabs)/memories/ideas')}
+                  activeOpacity={0.7}
+                  style={{
+                    width: PROMPT_CARD_WIDTH,
+                    height: PROMPT_CARD_HEIGHT,
+                    borderRadius: 14,
+                    backgroundColor: isDark ? '#1f2937' : '#F0F2F5',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: isDark ? '#374151' : '#e8e5e0',
+                  }}
+                >
+                  <Ionicons name="arrow-forward-circle" size={28} color="#D4A853" />
+                  <Text style={{ marginTop: 10, fontSize: 14, fontWeight: '600', color: '#D4A853' }}>
+                    See All Prompts
+                  </Text>
+                </TouchableOpacity>
+              );
+            }
+            return (
               <TouchableOpacity
-                key={idx}
-                onPress={() => router.replace({
-                  pathname: "(tabs)/memories/capture",
-                  params: {
-                    defaultTab: 'audio',
-                    selectedPrompt: p.title
-                  }
+                onPress={() => router.push({
+                  pathname: '(tabs)/memories/capture',
+                  params: { defaultTab: 'audio', selectedPrompt: item.title },
                 })}
                 activeOpacity={0.7}
                 style={{
-                  width: '48%',
-                  marginBottom: 12,
+                  width: PROMPT_CARD_WIDTH,
+                  height: PROMPT_CARD_HEIGHT,
                   backgroundColor: isDark ? '#1f2937' : '#ffffff',
                   borderRadius: 14,
-                  padding: 16,
+                  padding: 14,
                   borderWidth: 1,
                   borderColor: isDark ? '#374151' : '#e8e5e0',
-                  borderLeftWidth: 3,
-                  borderLeftColor: '#c4a471',
+                  borderLeftWidth: 4,
+                  borderLeftColor: '#D4A853',
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.08,
-                  shadowRadius: 6,
+                  shadowOpacity: 0.12,
+                  shadowRadius: 12,
                   elevation: 3,
                 }}
               >
                 <View
                   style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 22,
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
                     backgroundColor: isDark ? '#374151' : '#FBF7F0',
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginBottom: 10,
                   }}
                 >
-                  <Text style={{ fontSize: 22 }}>{p.emoji}</Text>
+                  <Text style={{ fontSize: 20 }}>{item.emoji}</Text>
                 </View>
                 <Text
-                  style={{ fontSize: 15, fontWeight: '700', marginBottom: 4, color: isDark ? '#f3f4f6' : '#1e293b' }}
+                  style={{ fontSize: 14, fontWeight: '700', marginBottom: 4, color: isDark ? '#f3f4f6' : '#1B2838' }}
                   numberOfLines={2}
                 >
-                  {p.title}
+                  {item.title}
                 </Text>
                 <Text
-                  style={{ fontSize: 12, color: isDark ? '#9ca3af' : '#6b7280', lineHeight: 16 }}
-                  numberOfLines={3}
+                  style={{ fontSize: 12, color: isDark ? '#9ca3af' : '#6B7280', lineHeight: 16 }}
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
                 >
-                  {p.subtitle}
+                  {item.subtitle}
                 </Text>
               </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+            );
+          }}
+        />
 
         {/* Your Legacy So Far — stats section */}
-        <View className="px-6 mt-2 mb-4">
+        <View style={{ paddingHorizontal: 24, marginTop: 8, marginBottom: 16 }}>
           <Text
             style={{
               fontSize: 20,
               fontWeight: '600',
-              color: isDark ? '#f3f4f6' : '#1e293b',
-              marginBottom: 14,
-              fontFamily: 'merriweather',
+              color: isDark ? '#f3f4f6' : '#1B2838',
+              marginBottom: 16,
             }}
           >
             Your Legacy So Far
@@ -637,13 +666,15 @@ export default function HomeScreen() {
                 key={i}
                 style={{
                   flex: 1,
-                  backgroundColor: isDark ? '#1f2937' : '#ffffff',
+                  minHeight: 120,
+                  backgroundColor: isDark ? '#1f2937' : '#F0F2F5',
                   borderRadius: 14,
                   padding: 16,
                   marginHorizontal: i === 1 ? 8 : 0,
                   alignItems: 'center',
+                  justifyContent: 'center',
                   borderWidth: 1,
-                  borderColor: isDark ? '#374151' : '#e8e5e0',
+                  borderColor: isDark ? '#374151' : '#e0e3e8',
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.08,
@@ -656,19 +687,19 @@ export default function HomeScreen() {
                     width: 36,
                     height: 36,
                     borderRadius: 18,
-                    backgroundColor: isDark ? '#374151' : '#FBF7F0',
+                    backgroundColor: isDark ? '#374151' : '#E8E5DF',
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginBottom: 8,
                   }}
                 >
-                  <Ionicons name={stat.icon} size={18} color="#c4a471" />
+                  <Ionicons name={stat.icon} size={18} color="#D4A853" />
                 </View>
                 <Text
                   style={{
-                    fontSize: 22,
+                    fontSize: 32,
                     fontWeight: '700',
-                    color: isDark ? '#f3f4f6' : '#1e293b',
+                    color: isDark ? '#f3f4f6' : '#1B2838',
                     marginBottom: 2,
                   }}
                 >
@@ -678,9 +709,9 @@ export default function HomeScreen() {
                   style={{
                     fontSize: 11,
                     fontWeight: '600',
-                    color: isDark ? '#9ca3af' : '#6b7280',
+                    color: isDark ? '#9ca3af' : '#6B7280',
                     textTransform: 'uppercase',
-                    letterSpacing: 0.5,
+                    letterSpacing: 1,
                   }}
                 >
                   {stat.label}
@@ -761,8 +792,6 @@ export default function HomeScreen() {
 
         </View>
 
-        {/* Bottom spacing */}
-        <View style={{ height: 32 }} />
       </ScrollView>
 
       <PricingModal

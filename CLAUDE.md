@@ -219,27 +219,110 @@ heydad-mobile-main/
 - **Bottom spacing**: Added 32px bottom padding to ScrollView content
 - All elevation values increased from 2 to 3–4 for Android depth
 
+## Changelog — Round 3 Fixes (Post-Testing)
+
+### Fix 7: Hero CTA Copy — Remove Pronouns — ✅ Complete
+- Files modified: `app/(tabs)/index.tsx`
+- Removed all pronoun-based subtext ("They'll thank you for this someday.")
+- New subtext: "This will mean the world one day." — always the same, no pronouns
+- Headline now picks a random child name on each render (or "Record a video for your kids" if none)
+- No `getPronoun()` or gender references existed in codebase — confirmed clean
+- No gender column on `children` table — confirmed
+
+### Fix 1: Legacy Section Scroll Bug — ✅ Complete
+- Files modified: `app/(tabs)/index.tsx`
+- Removed `stickyHeaderIndices={[1]}` from ScrollView (was causing layout calculation issues)
+- Added `contentContainerStyle={{ paddingBottom: 100 }}` to ScrollView to clear tab bar
+- Added `minHeight: 120` and `justifyContent: 'center'` to stat cards to prevent collapse
+- Changed legacy section container from NativeWind classes to explicit `style` for reliable layout
+- Removed old `<View style={{ height: 32 }} />` bottom spacer (now handled by contentContainerStyle)
+
+### Fix 3: Convert Prompts to Horizontal Slider — ✅ Complete
+- Files modified: `app/(tabs)/index.tsx`
+- Replaced 2x2 grid with horizontal `FlatList` (`RNFlatList`)
+- Added `Dimensions` and `FlatList as RNFlatList` imports
+- Card sizing: 160x180px fixed, shows ~2.2 cards at a time
+- Shows all 10 prompts in order (no longer randomly picks 4)
+- Removed `pickRandomPrompts()` function and `activePrompts` state
+- Added "See All Prompts" card at end — navigates to existing `(tabs)/memories/ideas` screen
+- `snapToInterval={PROMPT_CARD_WIDTH + 12}` with `decelerationRate="fast"` for snapping
+- Reduced "Story Prompts" header to 16px semibold to save vertical space
+
+### Fix 2: Bold Masculine Color Overhaul — ✅ Complete
+- Files modified: `app/(tabs)/index.tsx`, `app/(tabs)/_layout.tsx`
+- **Background**: Changed from `#F8F7F5` to warm linen `#F5F3EF`
+- **Hero CTA**: Replaced flat white card with dark gradient `LinearGradient` from `#1B2838` to `#2C3E50`
+  - Gold `#D4A853` for label, button, and accents
+  - White headline on dark background — premium feel
+  - Button has gold glow shadow: `shadowColor: '#D4A853', shadowOpacity: 0.3`
+  - Button text is dark navy on gold (reversed contrast)
+- **Prompt cards**: Stronger shadow (`shadowOpacity: 0.12, shadowRadius: 12`), 4px gold left border with `#D4A853`, dark navy `#1B2838` title text
+- **Stat cards**: Light navy tint background `#F0F2F5`, numbers at 32px bold, labels with `letterSpacing: 1`, icon backgrounds `#E8E5DF`
+- **Section headers**: Dark navy `#1B2838`, semibold 20px
+- **Home title**: 24px bold dark navy (was text-3xl NativeWind class)
+- **Tab bar**: Active `#D4A853` (richer gold), inactive `#9CA3AF`
+- Restored `LinearGradient` import from `expo-linear-gradient`
+
+### Fix 4: Dad Chat Whitespace + Kids Photos — ✅ Complete
+- Files modified: `app/(tabs)/saythis.tsx`
+- Replaced `SafeAreaView edges={['top']}` with `<View style={{ paddingTop: insets.top + 8 }}>` using `useSafeAreaInsets()`
+- Header now uses `pb-2` only (no `py-2`), removing top padding entirely — snug to safe area
+- Removed "Chatting about {name}" subtitle line from header to save space
+- Added `Image` import from react-native
+- Added `childAvatars` state with signed URL fetching from `child-images` storage bucket
+- Updated children query to include `image_path` column
+- Child selector chips now show circular profile photos (28px diameter) + name
+- Placeholder initial (dark navy circle, white letter) when no photo
+- Active chip has gold border `#D4A853` with subtle gold background tint
+- Inactive chip has gray border, no fill
+
+### Fix 5: Dad Chat UX Personality — ✅ Complete
+- Files modified: `app/(tabs)/saythis.tsx`
+- **Empty state redesigned**:
+  - Replaced generic `chatbubbles-outline` icon with Hey Dad logo (`assets/logo.png`) in warm 80px circle
+  - Header changed from "Dad Chat" to "What's on your mind, Dad?" — left-aligned, 22px semibold, dark navy
+  - Subtitle left-aligned, 14px gray
+  - Content positioned at top ~20% (not vertically centered)
+- **Suggestion pills redesigned**:
+  - Left-aligned with warm gold tint background `#FBF7F0`
+  - 2px gold left border accent on each pill
+  - Dark navy text, 14px
+- **Input bar redesigned**:
+  - Added subtle top shadow (`shadowOpacity: 0.05, shadowRadius: 4`)
+  - White background with border separation
+  - Send button: gold `#D4A853` background when active (text entered), gray when empty
+  - White arrow icon on gold background
+
+### Fix 6: Dad Chat Input Placeholder Text — ✅ Complete
+- Files modified: `app/(tabs)/saythis.tsx`
+- Changed from "Ask me anything about being a dad..." to "What's on your mind?"
+
 ## Known Issues
 - `kid_love_events` table and `increment_love` RPC must exist in Supabase (created by web repo migration `20260210_kid_love_events.sql`). If the migration hasn't been applied, love events will fail silently.
 - `PocketDadCard.tsx` and `PocketDadSignupModal.tsx` are dead code — can be safely deleted if desired.
 - `TryThisCard.tsx` is now dead code — only used by the old single-prompt card.
 - The kids feed doesn't have audio playback for `audio` type stories — it displays them visually but doesn't auto-play the audio. This could be added as a follow-up.
 - Access code validation now uses `.maybeSingle()` for proper error handling. If codes still fail, verify RLS policies on `children` table allow anon select on `access_code`.
-- `LinearGradient` from `expo-linear-gradient` is no longer imported in `index.tsx` — the package is still a dependency (used elsewhere) but the import comment can be removed if desired.
+- Hero CTA picks a random child name on each render — this means it can change if the component re-renders. If consistent names are desired, use `useMemo` or state to pin it per session.
+- The `SafeAreaView` import in `saythis.tsx` is replaced with `useSafeAreaInsets` — the `react-native-safe-area-context` package is still a dependency.
 
-## Testing Notes — Round 2
-- [ ] Kid code entry works with valid codes (no false rejections)
-- [ ] Kid code entry shows "Something went wrong" for DB errors vs "That code didn't work" for invalid codes
-- [ ] Home screen subtitle reads "One day, this will mean everything."
-- [ ] No "Record Your Own Thing" section on home screen
-- [ ] Hero CTA shows "Record a video for {child_name}" with child's name
-- [ ] Hero CTA shows "Record your first story" if no children added
-- [ ] "Start Recording" button navigates to video capture
-- [ ] "Your Legacy So Far" stats show correct counts
-- [ ] "This Month" stat correctly counts current month's stories
-- [ ] Warm gray background (#F8F7F5) visible in light mode
-- [ ] Prompt cards have gold left border accent
-- [ ] Prompt emojis appear in warm circular backgrounds
-- [ ] All cards have visible depth/shadow
-- [ ] Dark mode still renders correctly across all new sections
+## Testing Notes — Round 3
+- [ ] Home screen scrolls all the way to the bottom — legacy stats fully visible above tab bar
+- [ ] Hero CTA has dark navy gradient background with gold button
+- [ ] Hero CTA shows random child name (or "your kids" if none)
+- [ ] Hero CTA subtext reads "This will mean the world one day." (no pronouns)
+- [ ] Story prompts are a horizontal slider showing ~2 cards at a time
+- [ ] Swiping through prompts shows all 10 + "See All Prompts" card at end
+- [ ] "See All Prompts" navigates to the ideas/prompts browsing screen
+- [ ] Stat numbers are large (32px), cards have light navy tint background
+- [ ] Tab bar active icon is richer gold (#D4A853), inactive is medium gray
+- [ ] Background color is warm linen (#F5F3EF) in light mode
+- [ ] Dad Chat header is snug to safe area — no excessive white space
+- [ ] Child chips show profile photos (or initial placeholders)
+- [ ] Selected chip has gold border/tint treatment
+- [ ] Dad Chat empty state shows Hey Dad logo, left-aligned content, warm suggestion pills
+- [ ] Dad Chat input placeholder reads "What's on your mind?"
+- [ ] Send button turns gold when text is entered
+- [ ] Dark mode still renders correctly across all screens
+- [ ] No pronoun references (he'll/she'll/they'll) in any CTA copy
 - [ ] App works on iPhone SE through iPhone 15 Pro Max
