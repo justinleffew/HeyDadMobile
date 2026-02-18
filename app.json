@@ -35,6 +35,7 @@
       "**/*"
     ],
     "ios": {
+      "buildNumber": "2",
       "usesAppleSignIn": true,
       "supportsTablet": false,
       "bundleIdentifier": "com.heydadllc.heydad",
