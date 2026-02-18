@@ -9,6 +9,14 @@ node_modules/
 dist/
 build/
 
+node_modules/
+.expo/
+.expo-shared/
+.claude/
+*.log
+.cache/
+**/.cache/
+
 # Local env files
 .env
 .env.*
