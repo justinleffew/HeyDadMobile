@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as tus from "tus-js-client";
 import { supabase } from 'utils/supabase';
 
-const TUS_ENDPOINT = `https://extfuvnhdbmpcxeecnqc.supabase.co/storage/v1/upload/resumable`;
+const TUS_ENDPOINT = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/upload/resumable`;
 const videoExtension = Platform.OS === 'ios' ? '.mov' : '.mp4'
 const videoMIME = Platform.OS === 'ios' ? 'video/mov' : 'video/mp4'
 
