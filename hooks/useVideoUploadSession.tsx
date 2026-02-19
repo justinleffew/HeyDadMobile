@@ -95,7 +95,6 @@ export function useVideoUploadSession(videoId: string) {
     ): Promise<void> => {
       try {
         setStatus("uploading");
-        setShowRetryModal(true);
         await saveVideoLocally(videoId, videoUri, thumbnailUri);
         await AsyncStorage.setItem(metadataKey, JSON.stringify(metadata));
 
@@ -111,8 +110,11 @@ export function useVideoUploadSession(videoId: string) {
         if (!videoFileInfo.exists) {
           throw new Error('Video file not found');
         }
+        const blobResponse = await fetch(videoUri);
+        const blob = await blobResponse.blob();
+
         return new Promise((resolve, reject) => {
-          const upload = new tus.Upload(videoResult, {
+          const upload = new tus.Upload(blob, {
             endpoint: TUS_ENDPOINT,
             retryDelays: [0, 3000, 5000, 10000, 20000],
             headers: {
@@ -125,7 +127,7 @@ export function useVideoUploadSession(videoId: string) {
               bucketName: "videos",
               objectName: metadata.file_path,
               contentType: videoMIME,
-              cacheControl: 3600,
+              cacheControl: "3600",
             },
             chunkSize: 6 * 1024 * 1024,
             onError: (error) => {
@@ -234,13 +236,15 @@ export function useVideoUploadSession(videoId: string) {
           upload.findPreviousUploads().then((previousUploads) => {
             if (previousUploads.length > 0) {
               upload.resumeUpload(previousUploads[0]);
+            } else {
+              upload.start();
             }
-            upload.start();
           });
         });
       } catch (err: any) {
         console.error("Upload error:", err);
         setError(err.message || "Unexpected error");
+        setShowRetryModal(true);
         setStatus("error");
       }
     },

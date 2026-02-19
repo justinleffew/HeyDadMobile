@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -150,8 +151,10 @@ export default function DadChatScreen() {
     // Scroll to bottom after adding user message
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
+    let timeoutId: ReturnType<typeof setTimeout>;
     try {
       abortRef.current = new AbortController();
+      timeoutId = setTimeout(() => abortRef.current?.abort(), 30000);
 
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
@@ -253,7 +256,7 @@ export default function DadChatScreen() {
       const errorMsg: ChatMessage = {
         id: `${Date.now()}-error`,
         role: 'assistant',
-        content: 'Something went wrong. Please check your connection and try again.',
+        content: `Something went wrong: ${err instanceof Error ? err.message : 'Unknown error'}. Please check your connection and try again.`,
         timestamp: Date.now(),
       };
       setMessages((prev) => {
@@ -262,6 +265,7 @@ export default function DadChatScreen() {
         return next;
       });
     } finally {
+      clearTimeout(timeoutId!);
       setLoading(false);
       abortRef.current = null;
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 200);
@@ -384,13 +388,13 @@ export default function DadChatScreen() {
     <View className={`flex-1 ${bg}`}>
         {/* Header — no extra paddingTop since ProtectedRoute already wraps in SafeAreaView */}
         <View className={`flex-row items-center justify-between px-4 pb-2 border-b ${borderColor}`}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 28, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838' }}>Dad Chat</Text>
+          <View style={{ flexShrink: 0 }}>
+            <Text numberOfLines={1} style={{ fontSize: 28, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838' }}>Dad Chat</Text>
           </View>
 
           {/* Child selector — avatar chips */}
           {children.length > 0 ? (
-            <View className="flex-row items-center mr-2">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1, marginHorizontal: 8 }} contentContainerStyle={{ alignItems: 'center' }}>
               {children.map((child) => {
                 const isSelected = selectedChild?.id === child.id;
                 const avatarUrl = childAvatars[child.id];
@@ -444,7 +448,7 @@ export default function DadChatScreen() {
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </ScrollView>
           ) : null}
 
           {messages.length > 0 ? (
