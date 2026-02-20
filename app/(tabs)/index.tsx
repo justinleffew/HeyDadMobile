@@ -6,7 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Link, useRouter } from 'expo-router';
 import { useAuth } from 'hooks/useAuth';
 import AudioPlayer from 'components/AudioPlayer';
-import NotesModal from 'components/NotesModal';
+import NoteDetail from 'components/NoteDetail';
 import VideoPlayerWithNotes from 'components/VideoPlayerWithNotes';
 import { supabase } from 'utils/supabase';
 import { useTheme } from 'providers/ThemeProvider';
@@ -1012,11 +1012,14 @@ export default function HomeScreen() {
         ) : null}
 
         {selectedNote ? (
-          <NotesModal
-            {...selectedNote}
+          <NoteDetail
+            note={selectedNote}
             visible={true}
-            onClose={() => {
+            onClose={() => setSelectedNote(null)}
+            onDelete={() => {
+              setCurrentNarration({ id: selectedNote.id, path: selectedNote.audio_path, thumbnailPath: selectedNote.image_path });
               setSelectedNote(null);
+              setShowDeleteModal(true);
             }}
           />
         ) : null}
