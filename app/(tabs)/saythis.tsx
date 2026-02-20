@@ -7,6 +7,7 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
   ActivityIndicator,
   Alert,
   Image,
@@ -14,7 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// ProtectedRoute already wraps in SafeAreaView — no need for useSafeAreaInsets here
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from 'hooks/useAuth';
 import { supabase } from 'utils/supabase';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -54,6 +55,10 @@ export default function DadChatScreen() {
   const { user } = useAuth();
   const { colorScheme } = useTheme();
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
+  // Tab bar height (60px from _layout.tsx) + bottom safe area inset
+  const TAB_BAR_HEIGHT = 60;
+  const keyboardOffset = TAB_BAR_HEIGHT + insets.bottom;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -62,6 +67,16 @@ export default function DadChatScreen() {
   const [selectedChild, setSelectedChild] = useState<ChildInfo | null>(null);
   const [childAvatars, setChildAvatars] = useState<Record<string, string | null>>({});
   const flatListRef = useRef<FlatList>(null);
+
+  // Scroll to bottom when keyboard opens so user sees latest messages + input
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      if (messages.length > 0) {
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      }
+    });
+    return () => sub.remove();
+  }, [messages.length]);
 
   const bg = isDark ? 'bg-gray-900' : 'bg-gray-50';
   const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
@@ -482,8 +497,8 @@ export default function DadChatScreen() {
         {/* Chat content — KeyboardAvoidingView wraps ONLY messages + input, NOT header */}
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={0}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={keyboardOffset}
         >
           {/* Messages */}
           <FlatList
