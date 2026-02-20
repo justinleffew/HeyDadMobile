@@ -14,7 +14,9 @@ const saveVideoLocally = async (videoId: string, videoUri: string, thumbnailUri?
   const videoPath = `${videoDir}${videoId}${videoExtension}`;
   const thumbnailPath = thumbnailUri ? `${videoDir}${videoId}_thumb.jpg` : null;
 
-  await FileSystem.makeDirectoryAsync(videoDir, { intermediates: true });
+  // Ensure full directory path exists (videoId may contain subdirectories like userId/)
+  const videoFileDir = videoPath.substring(0, videoPath.lastIndexOf('/'));
+  await FileSystem.makeDirectoryAsync(videoFileDir, { intermediates: true });
 
   // Actually copy the video file to local storage
   await FileSystem.copyAsync({ from: videoUri, to: videoPath });
@@ -95,6 +97,8 @@ export function useVideoUploadSession(videoId: string) {
     ): Promise<void> => {
       try {
         setStatus("uploading");
+        setProgress(0);
+        setError(null);
         await saveVideoLocally(videoId, videoUri, thumbnailUri);
         await AsyncStorage.setItem(metadataKey, JSON.stringify(metadata));
 
@@ -103,18 +107,40 @@ export function useVideoUploadSession(videoId: string) {
         } = await supabase.auth.getSession();
 
         if (!session?.user?.id) {
-          throw new Error('Not authenticated');
+          throw new Error('Not authenticated. Please sign in again.');
         }
-        const fileName = `${session.user.id}/${Date.now()}${videoExtension}`;
+
         const videoFileInfo = await FileSystem.getInfoAsync(videoUri);
         if (!videoFileInfo.exists) {
-          throw new Error('Video file not found');
+          throw new Error('Video file not found. Please record again.');
         }
-        const blobResponse = await fetch(videoUri);
-        const blob = await blobResponse.blob();
+
+        // Check file size — warn if over 100MB
+        if (videoFileInfo.size && videoFileInfo.size > 100 * 1024 * 1024) {
+          console.warn(`Video file is large: ${(videoFileInfo.size / 1024 / 1024).toFixed(1)}MB`);
+        }
+
+        // Convert local file URI to blob for TUS upload
+        let blob: Blob;
+        try {
+          const blobResponse = await fetch(videoUri);
+          blob = await blobResponse.blob();
+        } catch (fetchErr) {
+          console.warn("fetch() blob conversion failed, trying base64 fallback:", fetchErr);
+          // Fallback: read as base64 and convert to blob
+          const base64 = await FileSystem.readAsStringAsync(videoUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          const binaryString = atob(base64);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          blob = new Blob([bytes], { type: videoMIME });
+        }
 
         return new Promise((resolve, reject) => {
-          const upload = new tus.Upload(blob, {
+          const tusUpload = new tus.Upload(blob, {
             endpoint: TUS_ENDPOINT,
             retryDelays: [0, 3000, 5000, 10000, 20000],
             headers: {
@@ -130,40 +156,51 @@ export function useVideoUploadSession(videoId: string) {
               cacheControl: "3600",
             },
             chunkSize: 6 * 1024 * 1024,
-            onError: (error) => {
-              console.log("Upload failed:", error);
-              setError(error.message);
+            onError: (tusError) => {
+              console.error("TUS upload failed:", tusError);
+              const message = tusError?.message || "Upload failed. Check your connection and try again.";
+              setError(message);
               setShowRetryModal(true);
               setStatus("error");
-              reject(error);
+              reject(new Error(message));
             },
             onProgress: (uploaded, total) => {
-              const percentage = ((uploaded / total) * 100).toFixed(2);
-              console.log(uploaded, total, percentage + "%");
-              setProgress(Math.min(Math.floor((uploaded / total) * 100), 100));
+              const percentage = Math.min(Math.floor((uploaded / total) * 100), 100);
+              console.log(`Upload progress: ${uploaded}/${total} (${percentage}%)`);
+              setProgress(percentage);
             },
             onSuccess: async () => {
               try {
                 let thumbnailUploadData = null;
-                if (thumbnailUri) {
-                  const thumbnailFileName = `${session.user.id}/${Date.now()}_thumb.jpg`;
-                  const thumbnailBase64 = await FileSystem.readAsStringAsync(thumbnailUri.uri, {
-                    encoding: FileSystem.EncodingType.Base64,
-                  });
-                  const thumbnailBlob = new Uint8Array(
-                    atob(thumbnailBase64)
-                      .split('')
-                      .map(char => char.charCodeAt(0))
-                  );
+                // Normalize thumbnail URI — accept both {uri: string} and plain string
+                const thumbUri = thumbnailUri?.uri || (typeof thumbnailUri === 'string' && thumbnailUri.length > 0 ? thumbnailUri : null);
 
-                  const { data, error: thumbnailUploadError } = await supabase.storage
-                    .from("videos")
-                    .upload(thumbnailFileName, thumbnailBlob, {
-                      contentType: 'image/jpeg'
+                if (thumbUri) {
+                  try {
+                    const thumbnailFileName = `${session.user.id}/${Date.now()}_thumb.jpg`;
+                    const thumbnailBase64 = await FileSystem.readAsStringAsync(thumbUri, {
+                      encoding: FileSystem.EncodingType.Base64,
                     });
+                    const thumbnailBytes = new Uint8Array(
+                      atob(thumbnailBase64)
+                        .split('')
+                        .map(char => char.charCodeAt(0))
+                    );
 
-                  if (thumbnailUploadError) throw thumbnailUploadError;
-                  thumbnailUploadData = data;
+                    const { data, error: thumbnailUploadError } = await supabase.storage
+                      .from("videos")
+                      .upload(thumbnailFileName, thumbnailBytes, {
+                        contentType: 'image/jpeg'
+                      });
+
+                    if (thumbnailUploadError) {
+                      console.warn("Thumbnail upload failed (non-fatal):", thumbnailUploadError);
+                    } else {
+                      thumbnailUploadData = data;
+                    }
+                  } catch (thumbErr) {
+                    console.warn("Thumbnail processing failed (non-fatal):", thumbErr);
+                  }
                 }
 
                 const { selectedChildren, ...videoData } = metadata;
@@ -183,7 +220,7 @@ export function useVideoUploadSession(videoId: string) {
                   .select()
                   .single();
 
-                if (videoError) throw videoError;
+                if (videoError) throw new Error(`Failed to save video record: ${videoError.message}`);
 
                 // Create video-children relationships
                 if (selectedChildren?.length) {
@@ -196,7 +233,9 @@ export function useVideoUploadSession(videoId: string) {
                     .from("video_children")
                     .insert(videoChildrenData);
 
-                  if (relationError) throw relationError;
+                  if (relationError) {
+                    console.warn("Failed to link children (non-fatal):", relationError);
+                  }
                 }
 
                 // Update video status to completed
@@ -208,11 +247,13 @@ export function useVideoUploadSession(videoId: string) {
                   })
                   .eq("id", video.id);
 
-                if (updateError) throw updateError;
+                if (updateError) {
+                  console.warn("Failed to update video status (non-fatal):", updateError);
+                }
 
                 setStatus("success");
                 setShowRetryModal(false);
-                setError("");
+                setError(null);
 
                 // Clean up local files and storage
                 await removeVideoLocally(videoId);
@@ -225,30 +266,37 @@ export function useVideoUploadSession(videoId: string) {
                 resolve(cb?.());
               } catch (err: any) {
                 console.error("Post-upload processing error:", err);
-                setError(err.message);
+                setError(err.message || "Failed to save video after upload.");
                 setStatus("error");
+                setShowRetryModal(true);
                 reject(err);
               }
             },
           });
 
           // Handle resumable uploads
-          upload.findPreviousUploads().then((previousUploads) => {
+          tusUpload.findPreviousUploads().then((previousUploads) => {
             if (previousUploads.length > 0) {
-              upload.resumeUpload(previousUploads[0]);
+              console.log("Resuming previous upload");
+              tusUpload.resumeUpload(previousUploads[0]);
             } else {
-              upload.start();
+              console.log("Starting new upload");
+              tusUpload.start();
             }
+          }).catch((findErr) => {
+            console.warn("Could not check previous uploads, starting fresh:", findErr);
+            tusUpload.start();
           });
         });
       } catch (err: any) {
         console.error("Upload error:", err);
-        setError(err.message || "Unexpected error");
+        const message = err.message || "Unexpected error during upload.";
+        setError(message);
         setShowRetryModal(true);
         setStatus("error");
       }
     },
-    [videoId],
+    [videoId, metadataKey],
   );
 
   const resumeUploadIfExists = useCallback(async () => {
@@ -271,28 +319,53 @@ export function useVideoUploadSession(videoId: string) {
         const savedMetadata = await AsyncStorage.getItem(metadataKey);
         const savedVideo = await getVideoLocally(videoId);
 
-        if (savedMetadata && savedVideo) {
-          console.log("Retrying upload");
-          // Read the video file as a blob-like object for TUS
-          const fileInfo = await FileSystem.getInfoAsync(savedVideo.videoUri);
-          await upload(
-            savedVideo.videoUri,
-            savedVideo.thumbnailUri || '',
-            JSON.parse(savedMetadata),
-            fileInfo,
-            cb,
-          );
+        if (!savedMetadata || !savedVideo) {
+          console.log("No saved upload data found to retry");
+          setError("No saved upload found. Please record again.");
+          setShowRetryModal(true);
+          return;
         }
-      } catch (error) {
+
+        console.log("Retrying upload");
+        setStatus("uploading");
+        setError(null);
+
+        // Normalize thumbnail — upload() expects {uri: string} or falsy
+        const thumbnailForUpload = savedVideo.thumbnailUri
+          ? { uri: savedVideo.thumbnailUri }
+          : null;
+
+        const fileInfo = await FileSystem.getInfoAsync(savedVideo.videoUri);
+        if (!fileInfo.exists) {
+          setError("Video file was deleted. Please record again.");
+          setStatus("error");
+          return;
+        }
+
+        await upload(
+          savedVideo.videoUri,
+          thumbnailForUpload,
+          JSON.parse(savedMetadata),
+          fileInfo,
+          cb,
+        );
+      } catch (error: any) {
         console.error("Retry error:", error);
-        setError("Failed to retry upload");
+        setError(error?.message || "Failed to retry upload. Please try again.");
         setStatus("error");
+        setShowRetryModal(true);
       }
     },
-    [videoId, upload],
+    [videoId, metadataKey, upload],
   );
 
   const flush = useCallback(async () => {
+    // Always reset UI state so the modal dismisses immediately
+    setError(null);
+    setShowRetryModal(false);
+    setStatus("idle");
+    setProgress(0);
+
     try {
       const savedMetadata = await AsyncStorage.getItem(metadataKey);
       const savedVideo = await getVideoLocally(videoId);
@@ -305,14 +378,11 @@ export function useVideoUploadSession(videoId: string) {
           "active-upload-id",
           `tus-url-${videoId}`
         ]);
-        setError("");
-        setShowRetryModal(false);
-        setStatus("idle");
       }
     } catch (error) {
       console.error("Flush error:", error);
     }
-  }, [videoId]);
+  }, [videoId, metadataKey]);
 
   useEffect(() => {
     resumeUploadIfExists();
