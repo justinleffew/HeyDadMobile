@@ -1190,9 +1190,9 @@ const RecordLegacyScreen = () => {
                         <Video
                           source={{ uri: videoUri }}
                           useNativeControls
-                          resizeMode="cover"
+                          resizeMode="contain"
                           shouldPlay
-                          style={{ borderRadius: 8, height: 240 }}
+                          style={{ borderRadius: 8, aspectRatio: 3 / 4, width: '100%', backgroundColor: '#000' }}
                         />
                       }
 

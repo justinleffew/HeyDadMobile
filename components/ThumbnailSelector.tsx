@@ -38,6 +38,7 @@ export const ThumbnailSelector = ({
   };
 
   const thumbnailWidth = (screenWidth - 48) / 2 - 8;
+  const thumbnailHeight = thumbnailWidth * (4 / 3);
   const surface = isDark ? 'bg-[#1f2937]' : 'bg-white';
   const modalSurface = isDark ? 'bg-[#0f172a]' : 'bg-white';
   const headingText = isDark ? 'text-gray-100' : 'text-gray-800';
@@ -67,7 +68,7 @@ export const ThumbnailSelector = ({
                 className={`${placeholderColor} rounded-lg`}
                 style={{
                   width: thumbnailWidth,
-                  height: thumbnailWidth * 0.6,
+                  height: thumbnailHeight,
                 }}
               />
             ))}
@@ -122,9 +123,9 @@ export const ThumbnailSelector = ({
                 <View className={`relative ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
                   <Image
                     source={{ uri: thumbnail.uri }}
-                    className="w-full object-cover"
+                    className="w-full"
                     style={{
-                      height: thumbnailWidth * 0.6,
+                      height: thumbnailHeight,
                     }}
                     resizeMode="cover"
                   />
