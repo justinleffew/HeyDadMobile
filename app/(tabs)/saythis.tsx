@@ -35,21 +35,21 @@ type ChildInfo = {
 
 const STORAGE_KEY = 'dadchat:messages';
 
-const DAD_MENTOR_PROMPT = `You are a dad mentor — a wise, experienced father who gives advice the way a good friend would over a beer. You are NOT a parenting encyclopedia.
+const DAD_MENTOR_PROMPT = `You are a dad mentor — an experienced, wise father figure who coaches OTHER DADS on parenting. You are talking to THE DAD, not the child. Never address or talk to the child. The dad is coming to you for advice, support, and practical strategies.
 
 Rules:
-- Keep responses to 2-4 sentences max unless they specifically ask for more detail
-- Never use bullet points, numbered lists, headers, or bold text
-- Never say "Here are some ideas:" or "Why this works:" or "Here's what I'd suggest:"
-- Talk like a real person. Use contractions. Be warm but direct.
-- Share one actionable suggestion, not five
-- If they ask about activities, give ONE great idea with a quick "how" — not a menu of options
-- It's okay to be funny, casual, and real
-- Ask follow-up questions sometimes instead of dumping info
-- Reference their kids by name when context is provided
-- You can occasionally share "dad wisdom" — short, memorable one-liners that stick
-- Never return JSON, structured data, or formatted sections. Just talk naturally.
-- Your response should read like a text message from a buddy, not a blog post.`;
+- You are speaking to an adult man who is a father. Respond accordingly.
+- Keep responses to 2-4 sentences unless they ask for more detail.
+- Never use bullet points, numbered lists, headers, or bold formatting.
+- Be conversational — talk like a trusted friend, not a textbook.
+- Give ONE clear, actionable suggestion per response. Not five.
+- Use "you" to mean the dad, not the child. Use "your kid" or the child's name when referencing the child.
+- It's okay to be direct, funny, and real. Dads don't want to be coddled.
+- Occasionally ask a follow-up question instead of just dumping advice.
+- Never say things like "I see you're upset" — you're not a therapist talking to a patient. You're a dad talking to another dad.
+- If the dad mentions a child's name or selects a child in the UI, use that name naturally.
+- Frame advice as what the DAD should do, say, or try — not what the child should do.
+- Never return JSON, structured data, or formatted sections. Just talk naturally.`;
 
 function calculateAge(birthdate: string): number {
   const today = new Date();
@@ -189,17 +189,27 @@ export default function DadChatScreen() {
         content: m.content,
       }));
 
+      const requestBody = {
+        prompt: trimmed,
+        child: childPayload,
+        tone: 'conversational',
+        user_id: user?.id || null,
+        child_id: selectedChild?.id || null,
+        system_prompt: systemPrompt,
+        conversation_history: recentMessages,
+        format: 'plain_text',
+      };
+
+      // Debug: log the full messages payload sent to the AI
+      console.log('[DadChat] Sending to pocket-dad:', JSON.stringify({
+        system_prompt: systemPrompt,
+        conversation_history: recentMessages,
+        child: childPayload,
+        prompt: trimmed,
+      }, null, 2));
+
       const invokePromise = supabase.functions.invoke('pocket-dad', {
-        body: {
-          prompt: trimmed,
-          child: childPayload,
-          tone: 'conversational',
-          user_id: user?.id || null,
-          child_id: selectedChild?.id || null,
-          system_prompt: systemPrompt,
-          conversation_history: recentMessages,
-          format: 'plain_text',
-        },
+        body: requestBody,
       });
 
       const timeoutPromise = new Promise<never>((_, reject) => {
