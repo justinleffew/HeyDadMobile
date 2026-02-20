@@ -8,6 +8,7 @@ import {
   Dimensions,
   StatusBar,
   ScrollView,
+  Animated,
 } from "react-native";
 import { Audio } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
@@ -43,17 +44,62 @@ export default function PhotoViewer({
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const controlsOpacity = useRef(new Animated.Value(1)).current;
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Cleanup audio on unmount
+  const clearHideTimer = useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  }, []);
+
+  // Show controls briefly then auto-hide
+  const showControlsBriefly = useCallback(
+    (delayMs = 1500) => {
+      clearHideTimer();
+      setControlsVisible(true);
+      Animated.timing(controlsOpacity, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+      hideTimerRef.current = setTimeout(() => {
+        Animated.timing(controlsOpacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => {
+          setControlsVisible(false);
+        });
+      }, delayMs);
+    },
+    [clearHideTimer, controlsOpacity]
+  );
+
+  // Show controls and keep them visible (for pause / audio finish)
+  const showControlsPersistent = useCallback(() => {
+    clearHideTimer();
+    setControlsVisible(true);
+    Animated.timing(controlsOpacity, {
+      toValue: 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [clearHideTimer, controlsOpacity]);
+
+  // Cleanup audio and timer on unmount
   useEffect(() => {
     return () => {
+      clearHideTimer();
       if (soundRef.current) {
         soundRef.current.stopAsync().catch(() => {});
         soundRef.current.unloadAsync().catch(() => {});
         soundRef.current = null;
       }
     };
-  }, []);
+  }, [clearHideTimer]);
 
   const handlePlayPause = async () => {
     if (!audioUrl) return;
@@ -78,15 +124,18 @@ export default function PhotoViewer({
           if (status.didJustFinish) {
             setIsPlaying(false);
             setCurrentTime(0);
+            showControlsPersistent();
           }
         });
         setIsPlaying(true);
+        showControlsBriefly();
       } else {
         const status = await soundRef.current.getStatusAsync();
         if (status.isLoaded) {
           if (status.isPlaying) {
             await soundRef.current.pauseAsync();
             setIsPlaying(false);
+            showControlsPersistent();
           } else {
             if (
               status.didJustFinish ||
@@ -96,6 +145,7 @@ export default function PhotoViewer({
             }
             await soundRef.current.playAsync();
             setIsPlaying(true);
+            showControlsBriefly();
           }
         }
       }
@@ -104,7 +154,15 @@ export default function PhotoViewer({
     }
   };
 
+  // Tap on photo area — show controls briefly during playback
+  const handlePhotoTap = useCallback(() => {
+    if (isPlaying && audioUrl) {
+      showControlsBriefly(2000);
+    }
+  }, [isPlaying, audioUrl, showControlsBriefly]);
+
   const handleClose = useCallback(() => {
+    clearHideTimer();
     if (soundRef.current) {
       soundRef.current.stopAsync().catch(() => {});
       soundRef.current.unloadAsync().catch(() => {});
@@ -113,8 +171,10 @@ export default function PhotoViewer({
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(0);
+    setControlsVisible(true);
+    controlsOpacity.setValue(1);
     onClose();
-  }, [onClose]);
+  }, [onClose, clearHideTimer, controlsOpacity]);
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -131,7 +191,7 @@ export default function PhotoViewer({
         translucent
       />
       <View style={{ flex: 1, backgroundColor: "#000" }}>
-        {/* Zoomable photo */}
+        {/* Zoomable photo — tap shows controls during playback */}
         <ScrollView
           maximumZoomScale={3}
           minimumZoomScale={1}
@@ -141,7 +201,8 @@ export default function PhotoViewer({
           bouncesZoom
           style={{ flex: 1 }}
         >
-          <View
+          <Pressable
+            onPress={handlePhotoTap}
             style={{
               width: SCREEN_WIDTH,
               height: SCREEN_HEIGHT,
@@ -170,10 +231,10 @@ export default function PhotoViewer({
                 />
               </View>
             )}
-          </View>
+          </Pressable>
         </ScrollView>
 
-        {/* Audio play/pause button (centered) — only if audio exists */}
+        {/* Audio play/pause button (centered) — fades in/out */}
         {audioUrl ? (
           <View
             style={{
@@ -187,24 +248,29 @@ export default function PhotoViewer({
             }}
             pointerEvents="box-none"
           >
-            <Pressable
-              onPress={handlePlayPause}
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: 36,
-                backgroundColor: "rgba(0,0,0,0.5)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
+            <Animated.View
+              style={{ opacity: controlsOpacity }}
+              pointerEvents={controlsVisible ? "auto" : "none"}
             >
-              <Ionicons
-                name={isPlaying ? "pause" : "play"}
-                size={36}
-                color="white"
-                style={!isPlaying ? { marginLeft: 4 } : undefined}
-              />
-            </Pressable>
+              <Pressable
+                onPress={handlePlayPause}
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: 36,
+                  backgroundColor: "rgba(0,0,0,0.5)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons
+                  name={isPlaying ? "pause" : "play"}
+                  size={36}
+                  color="white"
+                  style={!isPlaying ? { marginLeft: 4 } : undefined}
+                />
+              </Pressable>
+            </Animated.View>
           </View>
         ) : null}
 
