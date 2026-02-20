@@ -105,17 +105,20 @@ export default function KidsCodeEntryScreen() {
     setLoading(true);
     setError('');
 
-    try {
-      // Use maybeSingle() instead of single() so "no rows" returns null, not an error
-      const { data: child, error: queryError } = await supabase
-        .from('children')
-        .select('id, name, user_id, birthdate')
-        .eq('access_code', fullCode.trim())
-        .maybeSingle();
+    const trimmedCode = fullCode.trim().toUpperCase();
+    console.log('[KidsCode] Validating code:', JSON.stringify(trimmedCode));
 
-      if (queryError) {
-        // Real database / RLS error — log it for debugging
-        console.error('Code lookup error:', queryError.code, queryError.message);
+    try {
+      // Use RPC function to bypass RLS — the children table blocks anon SELECT,
+      // but the validate_kid_code function uses SECURITY DEFINER to access it.
+      const { data, error: rpcError } = await supabase.rpc('validate_kid_code', {
+        code_input: trimmedCode,
+      });
+
+      console.log('[KidsCode] RPC response:', JSON.stringify({ data, error: rpcError }));
+
+      if (rpcError) {
+        console.error('[KidsCode] RPC error:', rpcError.code, rpcError.message, rpcError.details);
         setError('Something went wrong. Please try again.');
         triggerShake();
         setCode(Array(CODE_LENGTH).fill(''));
@@ -123,8 +126,10 @@ export default function KidsCodeEntryScreen() {
         return;
       }
 
+      // RPC returns an array of rows — take the first match
+      const child = Array.isArray(data) ? data[0] : data;
+
       if (!child) {
-        // No matching row — invalid code
         setError("That code didn't work. Try again!");
         triggerShake();
         setCode(Array(CODE_LENGTH).fill(''));
@@ -132,13 +137,15 @@ export default function KidsCodeEntryScreen() {
         return;
       }
 
+      console.log('[KidsCode] Found child:', child.kid_name, child.kid_id);
+
       // Store kid session in AsyncStorage
       await AsyncStorage.setItem(
         KIDS_SESSION_KEY,
         JSON.stringify({
-          childId: child.id,
-          childName: child.name,
-          parentId: child.user_id,
+          childId: child.kid_id,
+          childName: child.kid_name,
+          parentId: child.parent_id,
           birthdate: child.birthdate,
         }),
       );
@@ -146,7 +153,7 @@ export default function KidsCodeEntryScreen() {
       // Navigate to the kids feed
       router.replace('/kids/feed');
     } catch (err) {
-      console.error('Unexpected error during code validation:', err);
+      console.error('[KidsCode] Unexpected error:', err);
       setError('Something went wrong. Please try again.');
       triggerShake();
       setCode(Array(CODE_LENGTH).fill(''));
