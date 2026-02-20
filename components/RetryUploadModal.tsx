@@ -39,6 +39,7 @@ export default function RetryUploadModal({
   progress,
   onRetry,
   onCancel,
+  errorMessage,
 }) {
   const { setVideoCount } = useAuth();
 
@@ -56,55 +57,38 @@ export default function RetryUploadModal({
       <View className="flex-1 bg-gray-600/50 items-center justify-center px-4">
         <View className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
           <Text className="text-lg font-semibold text-red-900 mb-4">
-            {isRetrying ? "Uploading" : "Retry Upload"}
+            Retry Upload
           </Text>
 
           <Text className="text-gray-600 mb-4">
-            {isRetrying
-              ? "Your video is uploading. Please wait while we process it"
-              : "An unsaved video upload was found. Would you like to continue processing it?"}
+            An unsaved video upload was found. Would you like to continue processing it?
           </Text>
 
-          {isRetrying ? (
-            <View className="mb-4 w-full bg-gray-200 rounded-full h-2">
-              <View
-                className="bg-gray-800 h-2 rounded-full"
-                style={{ width: `${progress}%` }}
-              />
+          {errorMessage ? (
+            <View style={{ backgroundColor: '#FEF2F2', borderRadius: 8, padding: 12, marginBottom: 16 }}>
+              <Text style={{ color: '#991B1B', fontSize: 13, lineHeight: 18 }}>
+                {errorMessage}
+              </Text>
             </View>
           ) : null}
 
           <View className="flex-row">
-            {!isRetrying ? (
-              <TouchableOpacity
-                disabled={isRetrying}
-                onPress={onCancel}
-                className="flex-1 bg-gray-100 py-2 px-4 rounded-lg items-center justify-center active:bg-gray-200"
-                activeOpacity={0.7}
-              >
-                <Text className="text-gray-700 font-medium">Cancel</Text>
-              </TouchableOpacity>
-            ) : null}
+            <TouchableOpacity
+              onPress={onCancel}
+              className="flex-1 bg-gray-100 py-2 px-4 rounded-lg items-center justify-center active:bg-gray-200"
+              activeOpacity={0.7}
+            >
+              <Text className="text-gray-700 font-medium">Discard</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => {
                 onRetry(() => setVideoCount((prevCount) => prevCount + 1));
               }}
-              disabled={isRetrying}
-              className={`ml-4 flex-1 py-2 px-4 rounded-lg flex-row items-center justify-center ${isRetrying
-                ? "bg-gray-800 opacity-50"
-                : "bg-gray-800 active:bg-gray-700"
-                }`}
+              className="ml-4 flex-1 py-2 px-4 rounded-lg flex-row items-center justify-center bg-gray-800 active:bg-gray-700"
               activeOpacity={0.7}
             >
-              {isRetrying ? (
-                <View className="mr-2">
-                  <AnimatedLoader />
-                </View>
-              ) : null}
-              <Text className="text-white font-medium">
-                {isRetrying ? "Uploading..." : "Retry"}
-              </Text>
+              <Text className="text-white font-medium">Retry Upload</Text>
             </TouchableOpacity>
           </View>
         </View>

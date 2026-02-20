@@ -260,13 +260,25 @@ const RecordLegacyScreen = () => {
   useEffect(() => {
     const initializeSessionId = async () => {
       try {
+        // Check for an existing active upload ID first (from a previous failed upload)
+        const existingId = await AsyncStorage.getItem("active-upload-id");
+        if (existingId) {
+          // Verify there's actually saved data for this upload
+          const savedMetadata = await AsyncStorage.getItem(`video-${existingId}`);
+          if (savedMetadata) {
+            console.log("Restoring previous upload session:", existingId);
+            setVideoSessionId(existingId);
+            return;
+          }
+        }
+
+        // No pending upload — create a fresh session ID
         const newId = `${user.id}/${Date.now()}${videoExtension}`;
         await AsyncStorage.setItem("active-upload-id", newId);
         setVideoSessionId(newId);
-
       } catch (error) {
         console.error('Error initializing session ID:', error);
-        setVideoSessionId(`${user.id}/${Date.now()}`);
+        setVideoSessionId(`${user.id}/${Date.now()}${videoExtension}`);
       }
     };
 
@@ -300,6 +312,14 @@ const RecordLegacyScreen = () => {
     flush,
     error: uploadError,
   } = useVideoUploadSession(videoSessionId);
+
+  // Wrap flush to also generate a fresh session ID for the next recording
+  const handleFlush = async () => {
+    await flush();
+    const newId = `${user.id}/${Date.now()}${videoExtension}`;
+    await AsyncStorage.setItem("active-upload-id", newId);
+    setVideoSessionId(newId);
+  };
 
   const handleOpenSettings = async () => {
     try {
@@ -771,11 +791,12 @@ const RecordLegacyScreen = () => {
       {step === 1 ?
         <>
           <RetryUploadModal
-            show={showRetryModal || uploadError}
+            show={showRetryModal}
             onRetry={retry}
-            onCancel={flush}
+            onCancel={handleFlush}
             isRetrying={status === "uploading"}
             progress={progress}
+            errorMessage={uploadError}
           />
           <ScrollView
             showsVerticalScrollIndicator={false}
@@ -1386,11 +1407,12 @@ const RecordLegacyScreen = () => {
         :
         <View className={`flex-1 ${contentSurface}`}>
           <RetryUploadModal
-            show={showRetryModal || uploadError}
+            show={showRetryModal}
             onRetry={retry}
-            onCancel={flush}
+            onCancel={handleFlush}
             isRetrying={status === "uploading"}
             progress={progress}
+            errorMessage={uploadError}
           />
           <ScrollView className="px-4">
             <TouchableOpacity
