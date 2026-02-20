@@ -394,15 +394,26 @@ export default function DadChatScreen() {
 
   return (
     <View className={`flex-1 ${bg}`}>
-        {/* Header — no extra paddingTop since ProtectedRoute already wraps in SafeAreaView */}
-        <View className={`flex-row items-center justify-between px-4 pb-2 border-b ${borderColor}`}>
-          <View style={{ flexShrink: 0 }}>
+        {/* Header — title row + children chips row */}
+        <View style={{ borderBottomWidth: 1, borderBottomColor: isDark ? '#374151' : '#e5e7eb' }}>
+          {/* Top row: Title + Clear button */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 6 }}>
             <Text numberOfLines={1} style={{ fontSize: 28, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838' }}>Dad Chat</Text>
+            {messages.length > 0 ? (
+              <TouchableOpacity onPress={clearChat} style={{ padding: 8 }}>
+                <Ionicons name="trash-outline" size={20} color={isDark ? '#9ca3af' : '#6b7280'} />
+              </TouchableOpacity>
+            ) : null}
           </View>
 
-          {/* Child selector — avatar chips */}
+          {/* Children chips row — horizontal scroll below title */}
           {children.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1, marginHorizontal: 8 }} contentContainerStyle={{ alignItems: 'center' }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ paddingBottom: 10 }}
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+            >
               {children.map((child) => {
                 const isSelected = selectedChild?.id === child.id;
                 const avatarUrl = childAvatars[child.id];
@@ -413,9 +424,8 @@ export default function DadChatScreen() {
                     style={{
                       flexDirection: 'row',
                       alignItems: 'center',
-                      marginLeft: 6,
-                      paddingHorizontal: 10,
-                      paddingVertical: 5,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
                       borderRadius: 20,
                       borderWidth: 1.5,
                       borderColor: isSelected ? '#D4A853' : (isDark ? '#374151' : '#d1d5db'),
@@ -425,7 +435,7 @@ export default function DadChatScreen() {
                     {avatarUrl ? (
                       <Image
                         source={{ uri: avatarUrl }}
-                        style={{ width: 28, height: 28, borderRadius: 14, marginRight: 6 }}
+                        style={{ width: 28, height: 28, borderRadius: 14, marginRight: 8 }}
                       />
                     ) : (
                       <View
@@ -436,7 +446,7 @@ export default function DadChatScreen() {
                           backgroundColor: '#1B2838',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          marginRight: 6,
+                          marginRight: 8,
                         }}
                       >
                         <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
@@ -446,7 +456,7 @@ export default function DadChatScreen() {
                     )}
                     <Text
                       style={{
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: '600',
                         color: isSelected ? '#D4A853' : (isDark ? '#9ca3af' : '#6b7280'),
                       }}
@@ -457,12 +467,6 @@ export default function DadChatScreen() {
                 );
               })}
             </ScrollView>
-          ) : null}
-
-          {messages.length > 0 ? (
-            <TouchableOpacity onPress={clearChat} className="p-2">
-              <Ionicons name="trash-outline" size={20} color={isDark ? '#9ca3af' : '#6b7280'} />
-            </TouchableOpacity>
           ) : null}
         </View>
 
