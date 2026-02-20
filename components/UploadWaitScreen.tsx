@@ -22,6 +22,27 @@ const dadJokes = [
   "Why did the scarecrow win an award? Because he was outstanding in his field.",
   "What do you call fake spaghetti? An impasta.",
   "Why did the math book look sad? Because it had too many problems.",
+  "I'm reading a book about anti-gravity. It's impossible to put down.",
+  "What did the ocean say to the beach? Nothing, it just waved.",
+  "Why do fathers take an extra pair of socks when they go golfing? In case they get a hole in one.",
+  "I used to hate facial hair, but then it grew on me.",
+  "What do you call a bear with no teeth? A gummy bear.",
+  "How do you organize a space party? You planet.",
+  "I wouldn't buy anything with velcro. It's a total rip-off.",
+  "Why couldn't the bicycle stand up by itself? It was two-tired.",
+  "What did the coffee report to the police? A mugging.",
+  "I got fired from the calendar factory. All I did was take a day off.",
+  "What do you call a sleeping dinosaur? A dino-snore.",
+  "Why do cows wear bells? Because their horns don't work.",
+  "I told my wife she was drawing her eyebrows too high. She looked surprised.",
+  "What's the best thing about Switzerland? I don't know, but the flag is a big plus.",
+  "I just found out I'm colorblind. The diagnosis came completely out of the purple.",
+  "What did the janitor say when he jumped out of the closet? Supplies!",
+  "Why don't eggs tell jokes? They'd crack each other up.",
+  "I used to be a banker, but I lost interest.",
+  "What do you call a factory that makes okay products? A satisfactory.",
+  "Did you hear about the guy who invented the knock-knock joke? He won the no-bell prize.",
+  "Why do dads always carry a spare joke? In case the first one doesn't land.",
 ];
 
 const Sparkle = ({ style }) => {
@@ -112,7 +133,9 @@ const Sparkles = ({ count = 50 }) => {
 };
 
 export default function UploadWaitScreen({ progress = 45 }) {
-  const [currentJokeIndex, setCurrentJokeIndex] = useState(0);
+  const [currentJokeIndex, setCurrentJokeIndex] = useState(() =>
+    Math.floor(Math.random() * dadJokes.length)
+  );
   const jokeOpacity = useSharedValue(1);
   const jokeTranslateY = useSharedValue(0);
 
@@ -122,7 +145,13 @@ export default function UploadWaitScreen({ progress = 45 }) {
       jokeTranslateY.value = withTiming(-16, { duration: 500 });
 
       setTimeout(() => {
-        setCurrentJokeIndex((prev) => (prev + 1) % dadJokes.length);
+        setCurrentJokeIndex((prev) => {
+          let next;
+          do {
+            next = Math.floor(Math.random() * dadJokes.length);
+          } while (next === prev && dadJokes.length > 1);
+          return next;
+        });
         jokeTranslateY.value = 0;
         jokeOpacity.value = withTiming(1, { duration: 500 });
       }, 500);
