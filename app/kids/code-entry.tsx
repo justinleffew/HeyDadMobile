@@ -106,16 +106,23 @@ export default function KidsCodeEntryScreen() {
     setError('');
 
     const trimmedCode = fullCode.trim().toUpperCase();
-    console.log('[KidsCode] Validating code:', JSON.stringify(trimmedCode));
+    console.log('[KidsCode] === CODE VALIDATION DEBUG ===');
+    console.log('[KidsCode] Raw input value:', JSON.stringify(trimmedCode));
+    console.log('[KidsCode] Length:', trimmedCode.length);
+    console.log('[KidsCode] Char codes:', [...trimmedCode].map(c => c.charCodeAt(0)));
 
     try {
       // Use RPC function to bypass RLS — the children table blocks anon SELECT,
-      // but the validate_kid_code function uses SECURITY DEFINER to access it.
-      const { data, error: rpcError } = await supabase.rpc('validate_kid_code', {
+      // but the validate_kid_access_code function uses SECURITY DEFINER to access it.
+      const { data, error: rpcError } = await supabase.rpc('validate_kid_access_code', {
         code_input: trimmedCode,
       });
 
-      console.log('[KidsCode] RPC response:', JSON.stringify({ data, error: rpcError }));
+      console.log('[KidsCode] RPC response data:', JSON.stringify(data));
+      console.log('[KidsCode] RPC response error:', JSON.stringify(rpcError));
+      console.log('[KidsCode] Data type:', typeof data);
+      console.log('[KidsCode] Data is null?', data === null);
+      console.log('[KidsCode] Data is array?', Array.isArray(data));
 
       if (rpcError) {
         console.error('[KidsCode] RPC error:', rpcError.code, rpcError.message, rpcError.details);
@@ -126,7 +133,7 @@ export default function KidsCodeEntryScreen() {
         return;
       }
 
-      // RPC returns an array of rows — take the first match
+      // RPC returns either a single JSON object or an array — handle both
       const child = Array.isArray(data) ? data[0] : data;
 
       if (!child) {
@@ -137,16 +144,17 @@ export default function KidsCodeEntryScreen() {
         return;
       }
 
-      console.log('[KidsCode] Found child:', child.kid_name, child.kid_id);
+      console.log('[KidsCode] Found child:', JSON.stringify(child));
 
       // Store kid session in AsyncStorage
+      // Handle both possible field naming conventions from the RPC function
       await AsyncStorage.setItem(
         KIDS_SESSION_KEY,
         JSON.stringify({
-          childId: child.kid_id,
-          childName: child.kid_name,
-          parentId: child.parent_id,
-          birthdate: child.birthdate,
+          childId: child.kid_id ?? child.id,
+          childName: child.kid_name ?? child.name,
+          parentId: child.parent_id ?? child.user_id,
+          birthdate: child.birthdate ?? child.date_of_birth,
         }),
       );
 

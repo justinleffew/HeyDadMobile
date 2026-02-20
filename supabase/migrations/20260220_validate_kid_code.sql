@@ -1,21 +1,11 @@
--- RPC function to validate kid access codes.
--- Uses SECURITY DEFINER to bypass RLS on the children table,
--- so the anon key (used by the mobile app) can validate codes
--- without needing a SELECT policy on the entire children table.
+-- OBSOLETE: This migration is NOT needed.
 --
--- Run this in the Supabase SQL Editor (Dashboard → SQL Editor → New query).
-
-CREATE OR REPLACE FUNCTION validate_kid_code(code_input TEXT)
-RETURNS TABLE(kid_id UUID, kid_name TEXT, parent_id UUID, birthdate DATE) AS $$
-BEGIN
-  RETURN QUERY
-  SELECT c.id, c.name, c.user_id, c.birthdate
-  FROM children c
-  WHERE c.access_code = upper(trim(code_input))
-  LIMIT 1;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Grant execute to anon and authenticated roles so both can call it
-GRANT EXECUTE ON FUNCTION validate_kid_code(TEXT) TO anon;
-GRANT EXECUTE ON FUNCTION validate_kid_code(TEXT) TO authenticated;
+-- The Supabase database already has a function called `validate_kid_access_code`
+-- (created by the web repo migration). That function serves the same purpose:
+-- it validates kid access codes via SECURITY DEFINER to bypass RLS.
+--
+-- The mobile app now calls `validate_kid_access_code` directly (not `validate_kid_code`).
+-- Do NOT run this migration — it would create a duplicate function with a different name.
+--
+-- If the function ever needs to be recreated, use the name `validate_kid_access_code`
+-- to match both the web and mobile codebases.

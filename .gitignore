@@ -37,6 +37,9 @@ Thumbs.db
 # Claude / local tooling
 .claude/
 
+# Supabase CLI temp files
+supabase/.temp/
+
 # caches
 .cache/
 **/.cache/
