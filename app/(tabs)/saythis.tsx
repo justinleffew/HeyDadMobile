@@ -40,15 +40,37 @@ const DAD_MENTOR_PROMPT = `You are a dad mentor talking to a FATHER — an adult
 
 When the dad mentions a child's name or selects a child, use that name to personalize YOUR ADVICE TO THE DAD. Example: if the dad selects Walker and asks about rainy days, say something like "Walker's at a great age for fort building — grab every blanket in the house and let him be the architect. He'll be busy for an hour." Do NOT say "Hey Walker, let's make art together!"
 
+IMPORTANT: Always factor in the child's age when giving advice. A 6-year-old is radically different from a 2-year-old. Tailor your suggestions to be age-appropriate and specific. A 6-year-old can do art projects, play board games, build things, have real conversations, and follow multi-step instructions. A 3-year-old needs simpler activities with more supervision. A 1-year-old needs sensory play and constant supervision. Never give generic "little one" advice — be specific to the age. If the child's age is provided in the conversation, USE IT.
+
 Keep responses to 2-4 sentences. Be conversational, direct, and practical. No bullet points. No headers. Talk like a real dad friend, not a parenting encyclopedia.`;
 
-function calculateAge(birthdate: string): number {
+function calculateAge(birthdate: string): { years: number; months: number } {
   const today = new Date();
   const birth = new Date(birthdate);
-  let age = today.getFullYear() - birth.getFullYear();
-  const md = today.getMonth() - birth.getMonth();
-  if (md < 0 || (md === 0 && today.getDate() < birth.getDate())) age--;
-  return Math.max(0, age);
+  let years = today.getFullYear() - birth.getFullYear();
+  let months = today.getMonth() - birth.getMonth();
+  if (months < 0 || (months === 0 && today.getDate() < birth.getDate())) {
+    years--;
+    months += 12;
+  }
+  if (today.getDate() < birth.getDate()) {
+    months--;
+    if (months < 0) months += 12;
+  }
+  years = Math.max(0, years);
+  months = Math.max(0, months);
+  return { years, months };
+}
+
+function formatAge(birthdate: string): string {
+  const { years, months } = calculateAge(birthdate);
+  if (years < 2) {
+    const totalMonths = years * 12 + months;
+    if (totalMonths === 0) return 'a newborn';
+    if (totalMonths === 1) return '1 month old';
+    return `${totalMonths} months old`;
+  }
+  return `${years} years old`;
 }
 
 export default function DadChatScreen() {
@@ -170,32 +192,64 @@ export default function DadChatScreen() {
 
     let timeoutId: ReturnType<typeof setTimeout>;
     try {
+      const childAge = selectedChild?.birthdate
+        ? calculateAge(selectedChild.birthdate)
+        : null;
+      const childAgeStr = selectedChild?.birthdate
+        ? formatAge(selectedChild.birthdate)
+        : null;
+
       const childPayload = selectedChild
         ? {
             name: selectedChild.name,
-            age_years: selectedChild.birthdate
-              ? calculateAge(selectedChild.birthdate)
-              : null,
+            age_years: childAge ? childAge.years : null,
           }
         : null;
 
       // Build child context for the system prompt
       let systemPrompt = DAD_MENTOR_PROMPT;
       if (selectedChild) {
-        const agePart = selectedChild.birthdate
-          ? ` who is ${calculateAge(selectedChild.birthdate)} years old`
-          : '';
+        const agePart = childAgeStr ? ` who is ${childAgeStr}` : '';
         systemPrompt += `\n\nThe dad is asking about his child named ${selectedChild.name}${agePart}. Use ${selectedChild.name}'s name when giving advice TO THE DAD. Remember: you are coaching the dad — never address ${selectedChild.name} directly.`;
+        if (childAgeStr) {
+          systemPrompt += ` ${selectedChild.name} is ${childAgeStr} — tailor ALL advice specifically for this age.`;
+        } else {
+          systemPrompt += ` The dad has not provided ${selectedChild.name}'s age. Ask "How old is ${selectedChild.name}?" so you can give age-appropriate advice.`;
+        }
       }
 
       // Build recent conversation history for context (last 10 messages)
+      // Prepend age context as first message so the edge function can't miss it
       const recentMessages = [...messages, userMsg].slice(-10).map((m) => ({
         role: m.role,
         content: m.content,
       }));
 
+      // Inject age context into conversation history so it's always visible to the AI
+      if (selectedChild && childAgeStr) {
+        recentMessages.unshift({
+          role: 'user',
+          content: `[Context: I'm asking about my child ${selectedChild.name}, who is ${childAgeStr}. Please tailor your advice for a ${childAgeStr} child specifically.]`,
+        });
+      } else if (selectedChild && !childAgeStr) {
+        recentMessages.unshift({
+          role: 'user',
+          content: `[Context: I'm asking about my child ${selectedChild.name}. I haven't provided their age yet — please ask me how old they are so you can give age-appropriate advice.]`,
+        });
+      }
+
+      // Also embed age context directly in the prompt text sent to the edge function
+      // This is the most reliable way to ensure the AI sees the age, regardless of
+      // how the edge function processes the request fields
+      let enrichedPrompt = trimmed;
+      if (selectedChild && childAgeStr) {
+        enrichedPrompt = `[My child ${selectedChild.name} is ${childAgeStr}.] ${trimmed}`;
+      } else if (selectedChild && !childAgeStr) {
+        enrichedPrompt = `[I'm asking about my child ${selectedChild.name}, but I haven't shared their age yet.] ${trimmed}`;
+      }
+
       const requestBody = {
-        prompt: trimmed,
+        prompt: enrichedPrompt,
         child: childPayload,
         tone: 'conversational',
         user_id: user?.id || null,
@@ -207,10 +261,13 @@ export default function DadChatScreen() {
 
       // Debug: log the full request payload sent to the AI
       console.log('=== [DadChat] FULL REQUEST TO pocket-dad ===');
+      console.log('[DadChat] selected child:', selectedChild?.name ?? 'none');
+      console.log('[DadChat] child birthdate:', selectedChild?.birthdate ?? 'none');
+      console.log('[DadChat] calculated age:', childAgeStr ?? 'unknown');
+      console.log('[DadChat] enriched prompt:', enrichedPrompt);
       console.log('[DadChat] system_prompt:', systemPrompt);
       console.log('[DadChat] conversation_history:', JSON.stringify(recentMessages, null, 2));
-      console.log('[DadChat] child:', JSON.stringify(childPayload));
-      console.log('[DadChat] prompt:', trimmed);
+      console.log('[DadChat] child payload:', JSON.stringify(childPayload));
       console.log('[DadChat] full requestBody:', JSON.stringify(requestBody, null, 2));
       console.log('=== [DadChat] END REQUEST ===');
 
