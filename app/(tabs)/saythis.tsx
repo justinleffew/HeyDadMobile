@@ -18,13 +18,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from 'hooks/useAuth';
 import { supabase } from 'utils/supabase';
 import { useTheme } from '../../providers/ThemeProvider';
-import { parsePocketDad, PocketDadAnswer } from 'utils/parsePocketDad';
 
 type ChatMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  answer?: PocketDadAnswer | null;
   timestamp: number;
 };
 
@@ -36,6 +34,22 @@ type ChildInfo = {
 };
 
 const STORAGE_KEY = 'dadchat:messages';
+
+const DAD_MENTOR_PROMPT = `You are a dad mentor — a wise, experienced father who gives advice the way a good friend would over a beer. You are NOT a parenting encyclopedia.
+
+Rules:
+- Keep responses to 2-4 sentences max unless they specifically ask for more detail
+- Never use bullet points, numbered lists, headers, or bold text
+- Never say "Here are some ideas:" or "Why this works:" or "Here's what I'd suggest:"
+- Talk like a real person. Use contractions. Be warm but direct.
+- Share one actionable suggestion, not five
+- If they ask about activities, give ONE great idea with a quick "how" — not a menu of options
+- It's okay to be funny, casual, and real
+- Ask follow-up questions sometimes instead of dumping info
+- Reference their kids by name when context is provided
+- You can occasionally share "dad wisdom" — short, memorable one-liners that stick
+- Never return JSON, structured data, or formatted sections. Just talk naturally.
+- Your response should read like a text message from a buddy, not a blog post.`;
 
 function calculateAge(birthdate: string): number {
   const today = new Date();
@@ -160,13 +174,31 @@ export default function DadChatScreen() {
           }
         : null;
 
+      // Build child context for the system prompt
+      let systemPrompt = DAD_MENTOR_PROMPT;
+      if (selectedChild) {
+        const agePart = selectedChild.birthdate
+          ? ` who is ${calculateAge(selectedChild.birthdate)} years old`
+          : '';
+        systemPrompt += `\n\nThe dad is asking about his kid named ${selectedChild.name}${agePart}. Use ${selectedChild.name}'s name naturally in your responses when relevant.`;
+      }
+
+      // Build recent conversation history for context (last 10 messages)
+      const recentMessages = [...messages, userMsg].slice(-10).map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
       const invokePromise = supabase.functions.invoke('pocket-dad', {
         body: {
           prompt: trimmed,
           child: childPayload,
-          tone: 'direct',
+          tone: 'conversational',
           user_id: user?.id || null,
           child_id: selectedChild?.id || null,
+          system_prompt: systemPrompt,
+          conversation_history: recentMessages,
+          format: 'plain_text',
         },
       });
 
@@ -185,48 +217,41 @@ export default function DadChatScreen() {
       if (invokeError) {
         throw new Error(invokeError.message || 'Failed to get response');
       }
-      let answer: PocketDadAnswer | null = null;
-      let textContent = '';
 
-      try {
-        if (data?.message) {
-          answer = parsePocketDad(data.message);
-          // Build readable text from the structured answer
-          const parts: string[] = [];
-          if (answer.primaryAction) {
-            parts.push(answer.primaryAction.title);
-            if (answer.primaryAction.script) {
-              parts.push(`\nSay this: "${answer.primaryAction.script}"`);
-            }
-            if (answer.primaryAction.content.length) {
-              parts.push('\n' + answer.primaryAction.content.map((c) => `  - ${c}`).join('\n'));
-            }
-          }
-          if (answer.alternatives.length) {
-            parts.push('\nAlternatives:');
-            answer.alternatives.forEach((alt) => {
-              parts.push(`\n${alt.title}`);
-              if (alt.script) parts.push(`  Say: "${alt.script}"`);
-              if (alt.content.length) {
-                parts.push(alt.content.map((c) => `  - ${c}`).join('\n'));
+      // Extract plain text response — handle both plain text and legacy JSON formats
+      let textContent = '';
+      if (data?.message) {
+        const raw = data.message;
+        // If the response is JSON (legacy edge function), extract the conversational bits
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            // Legacy structured response — extract primary action content only
+            const primary = parsed.primaryAction || parsed.primary_action || parsed.primary;
+            if (primary) {
+              const parts: string[] = [];
+              if (primary.script) parts.push(primary.script);
+              else if (primary.title) parts.push(primary.title);
+              if (primary.content && Array.isArray(primary.content) && primary.content.length) {
+                parts.push(primary.content[0]);
               }
-            });
+              textContent = parts.join(' ');
+            }
+            if (!textContent) {
+              // Fallback: just grab any string value
+              textContent = raw;
+            }
           }
-          if (answer.insights.length) {
-            parts.push('\nWhy this works:');
-            answer.insights.forEach((i) => parts.push(`  - ${i}`));
-          }
-          textContent = parts.join('\n');
+        } catch {
+          // Not JSON — it's plain text, which is what we want
+          textContent = raw;
         }
-      } catch {
-        textContent = data?.message || 'Sorry, I had trouble understanding the response. Please try again.';
       }
 
       const assistantMsg: ChatMessage = {
         id: `${Date.now()}-assistant`,
         role: 'assistant',
-        content: textContent || 'Sorry, I couldn\'t generate a response. Please try again.',
-        answer,
+        content: textContent || "Sorry, I couldn't generate a response. Please try again.",
         timestamp: Date.now(),
       };
 
@@ -252,7 +277,7 @@ export default function DadChatScreen() {
       setLoading(false);
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 200);
     }
-  }, [input, loading, selectedChild, user?.id, saveMessages]);
+  }, [input, loading, selectedChild, user?.id, messages, saveMessages]);
 
   const clearChat = useCallback(() => {
     Alert.alert('Clear Chat', 'Are you sure you want to clear all messages?', [
@@ -333,11 +358,18 @@ export default function DadChatScreen() {
 
       {/* Suggestion pills — left aligned, warm tint */}
       <View style={{ gap: 10 }}>
-        {[
-          'What are fun rainy day activities for a 5 year old?',
-          'How do I talk to my kid about a bully at school?',
-          "My toddler won't eat vegetables. Help!",
-        ].map((suggestion) => (
+        {(selectedChild
+          ? [
+              `What should I do with ${selectedChild.name} on a rainy day?`,
+              `${selectedChild.name} won't listen to me lately. What do I do?`,
+              `What's a good bedtime routine for ${selectedChild.name}?`,
+            ]
+          : [
+              'My kid had a meltdown at the store. What do I do next time?',
+              'Rainy day — need something fun to do with the kids.',
+              "My toddler won't eat vegetables. Help!",
+            ]
+        ).map((suggestion) => (
           <TouchableOpacity
             key={suggestion}
             onPress={() => setInput(suggestion)}
@@ -358,7 +390,7 @@ export default function DadChatScreen() {
         ))}
       </View>
     </View>
-  ), [isDark]);
+  ), [isDark, selectedChild]);
 
   return (
     <View className={`flex-1 ${bg}`}>
