@@ -790,7 +790,7 @@ export default function HomeScreen() {
                   </Text>
                   <Text
                     style={{ fontSize: 12, color: isDark ? '#9ca3af' : '#6B7280', lineHeight: 16 }}
-                    numberOfLines={2}
+                    numberOfLines={3}
                     ellipsizeMode="tail"
                   >
                     {item.subtitle}
