@@ -421,10 +421,10 @@ export default function DadChatScreen() {
         {/* Header — title row + children chips row */}
         <View style={{ borderBottomWidth: 1, borderBottomColor: isDark ? '#374151' : '#e5e7eb' }}>
           {/* Top row: Title + Clear button */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 6 }}>
-            <Text numberOfLines={1} style={{ fontSize: 28, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838' }}>Dad Chat</Text>
+          <View style={{ position: 'relative', paddingHorizontal: 16, paddingBottom: 6 }}>
+            <Text numberOfLines={1} style={{ fontSize: 28, fontWeight: '700', color: isDark ? '#f3f4f6' : '#1B2838', textAlign: 'center' }}>Dad Chat</Text>
             {messages.length > 0 ? (
-              <TouchableOpacity onPress={clearChat} style={{ padding: 8 }}>
+              <TouchableOpacity onPress={clearChat} style={{ position: 'absolute', right: 16, top: 0, bottom: 0, justifyContent: 'center', padding: 8 }}>
                 <Ionicons name="trash-outline" size={20} color={isDark ? '#9ca3af' : '#6b7280'} />
               </TouchableOpacity>
             ) : null}
@@ -545,7 +545,7 @@ export default function DadChatScreen() {
             <View className={`flex-row items-end rounded-2xl border ${borderColor} ${inputBg}`} style={{ minHeight: 52 }}>
               <TextInput
                 className={`flex-1 px-4 py-3 text-base max-h-24 ${textPrimary}`}
-                style={{ textAlignVertical: 'center' }}
+                style={{ textAlignVertical: 'center', textAlign: 'center' }}
                 placeholder="What's on your mind?"
                 placeholderTextColor={isDark ? '#6b7280' : '#9ca3af'}
                 value={input}
