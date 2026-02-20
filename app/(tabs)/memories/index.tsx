@@ -21,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import NotesModal from 'components/NotesModal';
 import AudioPlayer from 'components/AudioPlayer';
 import VideoPlayerWithNotes from 'components/VideoPlayerWithNotes';
+import PhotoViewer from 'components/PhotoViewer';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -230,11 +231,13 @@ const VideoGrid = ({
    ────────────────────────────────────────────── */
 const PhotoGrid = ({
   audioItems,
+  onPhotoPress,
   setShowDeleteModal,
   setCurrentNarration,
   isDark,
 }: {
   audioItems: any[];
+  onPhotoPress: (narration: any) => void;
   setShowDeleteModal: (b: boolean) => void;
   setCurrentNarration: (v: any) => void;
   isDark: boolean;
@@ -252,6 +255,7 @@ const PhotoGrid = ({
       renderItem={({ item: n }) => (
         <TouchableOpacity
           activeOpacity={0.85}
+          onPress={() => onPhotoPress(n)}
           onLongPress={() => {
             setCurrentNarration({ id: n.id, path: n.audio_path, thumbnailPath: n.image_path });
             setShowDeleteModal(true);
@@ -590,6 +594,32 @@ const MemoriesScreen = () => {
   };
 
   const [allVideoSignedUrls, setAllVideoSignedUrls] = useState<Record<string, string>>({});
+  const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
+  const [photoImageUrl, setPhotoImageUrl] = useState<string | null>(null);
+  const [photoAudioUrl, setPhotoAudioUrl] = useState<string | null>(null);
+
+  const handleOpenPhoto = async (narration: any) => {
+    if (!narration) return;
+    try {
+      let imgUrl: string | null = null;
+      let audUrl: string | null = null;
+
+      if (narration.image_path) {
+        const { data, error } = await supabase.storage.from('images').createSignedUrl(narration.image_path, 3600);
+        if (!error) imgUrl = data?.signedUrl || null;
+      }
+      if (narration.audio_path) {
+        const { data, error } = await supabase.storage.from('audio').createSignedUrl(narration.audio_path, 3600);
+        if (!error) audUrl = data?.signedUrl || null;
+      }
+
+      setPhotoImageUrl(imgUrl);
+      setPhotoAudioUrl(audUrl);
+      setSelectedPhoto(narration);
+    } catch (err) {
+      console.error('Error opening photo:', err);
+    }
+  };
 
   const handlePlayVideo = async (video) => {
     if (!video) return;
@@ -692,6 +722,7 @@ const MemoriesScreen = () => {
         ) : tab === 'audio' ? (
           <PhotoGrid
             audioItems={audioItems}
+            onPhotoPress={handleOpenPhoto}
             setShowDeleteModal={setShowDeleteModal}
             setCurrentNarration={setCurrentNarration}
             isDark={isDark}
@@ -799,6 +830,19 @@ const MemoriesScreen = () => {
           onClose={() => {
             setSelectedVideo(null);
             setVideoUrl(null);
+          }}
+        />
+      ) : null}
+
+      {selectedPhoto ? (
+        <PhotoViewer
+          narration={selectedPhoto}
+          imageUrl={photoImageUrl}
+          audioUrl={photoAudioUrl}
+          onClose={() => {
+            setSelectedPhoto(null);
+            setPhotoImageUrl(null);
+            setPhotoAudioUrl(null);
           }}
         />
       ) : null}
