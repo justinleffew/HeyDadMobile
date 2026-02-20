@@ -358,18 +358,13 @@ export default function KidsFeedScreen() {
       try {
         setLoading(true);
 
-        // 1. Fetch the child's info
-        const { data: child } = await supabase
-          .from('children')
-          .select('id, name, user_id, birthdate')
-          .eq('id', session.childId)
-          .single();
-
-        if (!child) {
-          setFeedItems([{ id: 'empty', type: 'empty', title: null, createdAt: '' }]);
-          setLoading(false);
-          return;
-        }
+        // 1. Use session data instead of re-querying children table (RLS blocks anon reads)
+        const child = {
+          id: session.childId,
+          name: session.childName,
+          user_id: session.parentId,
+          birthdate: session.birthdate,
+        };
 
         // 2. Fetch video assignments for this child
         const { data: videoChildren } = await supabase
