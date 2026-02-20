@@ -36,7 +36,6 @@ type ChildInfo = {
 };
 
 const STORAGE_KEY = 'dadchat:messages';
-const API_URL = 'https://heydad.pro/api/pocket-dad';
 
 function calculateAge(birthdate: string): number {
   const today = new Date();
@@ -59,7 +58,6 @@ export default function DadChatScreen() {
   const [selectedChild, setSelectedChild] = useState<ChildInfo | null>(null);
   const [childAvatars, setChildAvatars] = useState<Record<string, string | null>>({});
   const flatListRef = useRef<FlatList>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   const bg = isDark ? 'bg-gray-900' : 'bg-gray-50';
   const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
@@ -153,12 +151,6 @@ export default function DadChatScreen() {
 
     let timeoutId: ReturnType<typeof setTimeout>;
     try {
-      abortRef.current = new AbortController();
-      timeoutId = setTimeout(() => abortRef.current?.abort(), 30000);
-
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-
       const childPayload = selectedChild
         ? {
             name: selectedChild.name,
@@ -168,39 +160,31 @@ export default function DadChatScreen() {
           }
         : null;
 
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
+      const invokePromise = supabase.functions.invoke('pocket-dad', {
+        body: {
           prompt: trimmed,
-          prompt_details: { raw: trimmed, trimmed },
-          tone: 'direct',
-          tone_intensity: 'baseline',
           child: childPayload,
-          situation: null,
-          context: {
-            location: null,
-            urgency: null,
-            tried_strategies: [],
-            recent_topics: [],
-            parenting_style: null,
-          },
+          tone: 'direct',
           user_id: user?.id || null,
-          persona: null,
           child_id: selectedChild?.id || null,
-          metadata: {},
-        }),
-        signal: abortRef.current.signal,
+        },
       });
 
-      if (!res.ok) {
-        throw new Error(`Server error (${res.status})`);
-      }
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error('Request timed out. Please try again.')),
+          30000
+        );
+      });
 
-      const data = await res.json();
+      const { data, error: invokeError } = await Promise.race([
+        invokePromise,
+        timeoutPromise,
+      ]);
+
+      if (invokeError) {
+        throw new Error(invokeError.message || 'Failed to get response');
+      }
       let answer: PocketDadAnswer | null = null;
       let textContent = '';
 
@@ -252,7 +236,6 @@ export default function DadChatScreen() {
         return next;
       });
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') return;
       const errorMsg: ChatMessage = {
         id: `${Date.now()}-error`,
         role: 'assistant',
@@ -267,7 +250,6 @@ export default function DadChatScreen() {
     } finally {
       clearTimeout(timeoutId!);
       setLoading(false);
-      abortRef.current = null;
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 200);
     }
   }, [input, loading, selectedChild, user?.id, saveMessages]);
@@ -288,12 +270,6 @@ export default function DadChatScreen() {
     ]);
   }, [user?.id]);
 
-  // Abort any in-flight request on unmount
-  useEffect(() => {
-    return () => {
-      abortRef.current?.abort();
-    };
-  }, []);
 
   const renderMessage = useCallback(
     ({ item }: { item: ChatMessage }) => {
