@@ -601,8 +601,8 @@ export default function DadChatScreen() {
           >
             <View className={`flex-row items-end rounded-2xl border ${borderColor} ${inputBg}`} style={{ minHeight: 52 }}>
               <TextInput
-                className={`flex-1 px-4 py-3 text-base max-h-24 ${textPrimary}`}
-                style={{ textAlignVertical: 'center', textAlign: 'center' }}
+                className={`flex-1 text-base max-h-24 ${textPrimary}`}
+                style={{ textAlign: 'left', textAlignVertical: 'center', paddingHorizontal: 16, paddingVertical: 14 }}
                 placeholder="What's on your mind?"
                 placeholderTextColor={isDark ? '#6b7280' : '#9ca3af'}
                 value={input}
