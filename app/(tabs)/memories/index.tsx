@@ -18,7 +18,7 @@ import { useAuth } from 'hooks/useAuth';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from 'utils/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
-import NotesModal from 'components/NotesModal';
+import NoteDetail from 'components/NoteDetail';
 import AudioPlayer from 'components/AudioPlayer';
 import VideoPlayerWithNotes from 'components/VideoPlayerWithNotes';
 import PhotoViewer from 'components/PhotoViewer';
@@ -812,11 +812,14 @@ const MemoriesScreen = () => {
       ) : null}
 
       {selectedNote ? (
-        <NotesModal
-          {...selectedNote}
+        <NoteDetail
+          note={selectedNote}
           visible={true}
-          onClose={() => {
+          onClose={() => setSelectedNote(null)}
+          onDelete={() => {
+            setCurrentNarration({ id: selectedNote.id, path: selectedNote.audio_path, thumbnailPath: selectedNote.image_path });
             setSelectedNote(null);
+            setShowDeleteModal(true);
           }}
         />
       ) : null}
