@@ -35,21 +35,11 @@ type ChildInfo = {
 
 const STORAGE_KEY = 'dadchat:messages';
 
-const DAD_MENTOR_PROMPT = `You are a dad mentor — an experienced, wise father figure who coaches OTHER DADS on parenting. You are talking to THE DAD, not the child. Never address or talk to the child. The dad is coming to you for advice, support, and practical strategies.
+const DAD_MENTOR_PROMPT = `You are a dad mentor talking to a FATHER — an adult man — who needs advice about his kids. You are NOT talking to the child. Never address the child directly. Never say "Hey [child name], let's..." — the child is not in this conversation.
 
-Rules:
-- You are speaking to an adult man who is a father. Respond accordingly.
-- Keep responses to 2-4 sentences unless they ask for more detail.
-- Never use bullet points, numbered lists, headers, or bold formatting.
-- Be conversational — talk like a trusted friend, not a textbook.
-- Give ONE clear, actionable suggestion per response. Not five.
-- Use "you" to mean the dad, not the child. Use "your kid" or the child's name when referencing the child.
-- It's okay to be direct, funny, and real. Dads don't want to be coddled.
-- Occasionally ask a follow-up question instead of just dumping advice.
-- Never say things like "I see you're upset" — you're not a therapist talking to a patient. You're a dad talking to another dad.
-- If the dad mentions a child's name or selects a child in the UI, use that name naturally.
-- Frame advice as what the DAD should do, say, or try — not what the child should do.
-- Never return JSON, structured data, or formatted sections. Just talk naturally.`;
+When the dad mentions a child's name or selects a child, use that name to personalize YOUR ADVICE TO THE DAD. Example: if the dad selects Walker and asks about rainy days, say something like "Walker's at a great age for fort building — grab every blanket in the house and let him be the architect. He'll be busy for an hour." Do NOT say "Hey Walker, let's make art together!"
+
+Keep responses to 2-4 sentences. Be conversational, direct, and practical. No bullet points. No headers. Talk like a real dad friend, not a parenting encyclopedia.`;
 
 function calculateAge(birthdate: string): number {
   const today = new Date();
@@ -180,7 +170,7 @@ export default function DadChatScreen() {
         const agePart = selectedChild.birthdate
           ? ` who is ${calculateAge(selectedChild.birthdate)} years old`
           : '';
-        systemPrompt += `\n\nThe dad is asking about his kid named ${selectedChild.name}${agePart}. Use ${selectedChild.name}'s name naturally in your responses when relevant.`;
+        systemPrompt += `\n\nThe dad is asking about his child named ${selectedChild.name}${agePart}. Use ${selectedChild.name}'s name when giving advice TO THE DAD. Remember: you are coaching the dad — never address ${selectedChild.name} directly.`;
       }
 
       // Build recent conversation history for context (last 10 messages)
@@ -200,13 +190,14 @@ export default function DadChatScreen() {
         format: 'plain_text',
       };
 
-      // Debug: log the full messages payload sent to the AI
-      console.log('[DadChat] Sending to pocket-dad:', JSON.stringify({
-        system_prompt: systemPrompt,
-        conversation_history: recentMessages,
-        child: childPayload,
-        prompt: trimmed,
-      }, null, 2));
+      // Debug: log the full request payload sent to the AI
+      console.log('=== [DadChat] FULL REQUEST TO pocket-dad ===');
+      console.log('[DadChat] system_prompt:', systemPrompt);
+      console.log('[DadChat] conversation_history:', JSON.stringify(recentMessages, null, 2));
+      console.log('[DadChat] child:', JSON.stringify(childPayload));
+      console.log('[DadChat] prompt:', trimmed);
+      console.log('[DadChat] full requestBody:', JSON.stringify(requestBody, null, 2));
+      console.log('=== [DadChat] END REQUEST ===');
 
       const invokePromise = supabase.functions.invoke('pocket-dad', {
         body: requestBody,
@@ -227,6 +218,14 @@ export default function DadChatScreen() {
       if (invokeError) {
         throw new Error(invokeError.message || 'Failed to get response');
       }
+
+      // Debug: log the full response from the Edge Function
+      console.log('=== [DadChat] RESPONSE FROM pocket-dad ===');
+      console.log('[DadChat] raw data:', JSON.stringify(data));
+      if (data?.message && /hey\s+\w+,?\s+let/i.test(data.message)) {
+        console.warn('[DadChat] WARNING: Response appears to address the CHILD directly! The pocket-dad Edge Function may be ignoring the system_prompt field. Check the Edge Function code in Supabase.');
+      }
+      console.log('=== [DadChat] END RESPONSE ===');
 
       // Extract plain text response — handle both plain text and legacy JSON formats
       let textContent = '';
