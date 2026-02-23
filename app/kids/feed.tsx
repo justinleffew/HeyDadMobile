@@ -351,128 +351,93 @@ export default function KidsFeedScreen() {
     })();
   }, []);
 
-  // Fetch content
+  // Fetch content via SECURITY DEFINER RPC (bypasses table RLS for unauthenticated kids)
   useEffect(() => {
     if (!session) return;
     (async () => {
       try {
         setLoading(true);
 
-        // 1. Use session data instead of re-querying children table (RLS blocks anon reads)
-        const child = {
-          id: session.childId,
-          name: session.childName,
-          user_id: session.parentId,
-          birthdate: session.birthdate,
-        };
-
-        // 2. Fetch video assignments for this child
-        const { data: videoChildren } = await supabase
-          .from('video_children')
-          .select('video_id')
-          .eq('child_id', child.id);
-
-        const videoIds = (videoChildren || []).map((vc: any) => vc.video_id);
-
-        // 3. Fetch videos and narrations in parallel
-        const [videosRes, narrationsRes] = await Promise.all([
-          videoIds.length > 0
-            ? supabase
-                .from('videos')
-                .select('id, title, notes, file_path, thumbnail_path, cloudflare_video_id, created_at, unlock_type, unlock_age, unlock_date')
-                .in('id', videoIds)
-                .order('created_at', { ascending: false })
-            : Promise.resolve({ data: [], error: null }),
-          supabase
-            .from('narrations')
-            .select('id, title, notes, audio_path, image_path, created_at, unlock_type, unlock_age, unlock_date, selected_children')
-            .eq('user_id', child.user_id)
-            .order('created_at', { ascending: false }),
-        ]);
-
-        const videos = videosRes.data || [];
-        const allNarrations = narrationsRes.data || [];
-
-        // Filter narrations assigned to this child
-        const narrations = allNarrations.filter((n: any) => {
-          if (!n.selected_children) return false;
-          return Array.isArray(n.selected_children) && n.selected_children.includes(child.id);
+        // 1. Fetch all content for this child via RPC
+        const { data: content, error: rpcError } = await supabase.rpc('get_kid_feed_content', {
+          p_child_id: session.childId,
         });
 
-        // 4. Build feed items with unlock filtering
+        if (rpcError) {
+          console.error('Error fetching kids content via RPC:', rpcError);
+          setFeedItems([{ id: 'empty', type: 'empty', title: null, createdAt: '' }]);
+          setLoading(false);
+          return;
+        }
+
+        const records = content || [];
+
+        // 2. Build feed items with unlock filtering and signed URLs
         const items: FeedItem[] = [];
         let hasLockedContent = false;
 
-        // Process videos
-        for (const video of videos) {
-          if (isUnlocked(video, child.birthdate)) {
-            let videoUrl: string | null = null;
-            let thumbnailUrl: string | null = null;
+        for (const record of records) {
+          if (isUnlocked(record, session.birthdate)) {
+            if (record.content_type === 'video') {
+              let videoUrl: string | null = null;
+              let thumbnailUrl: string | null = null;
 
-            // Get signed URL for video file
-            if (video.file_path) {
-              const { data } = await supabase.storage
-                .from('videos')
-                .createSignedUrl(video.file_path, 3600);
-              videoUrl = data?.signedUrl || null;
+              if (record.file_path) {
+                const { data } = await supabase.storage
+                  .from('videos')
+                  .createSignedUrl(record.file_path, 3600);
+                videoUrl = data?.signedUrl || null;
+              }
+
+              if (record.thumbnail_path) {
+                const { data } = await supabase.storage
+                  .from('videos')
+                  .createSignedUrl(record.thumbnail_path, 3600);
+                thumbnailUrl = data?.signedUrl || null;
+              }
+
+              items.push({
+                id: record.id,
+                type: 'video',
+                title: record.title,
+                videoUrl,
+                thumbnailUrl,
+                createdAt: record.created_at,
+              });
+            } else if (record.content_type === 'audio') {
+              if (!record.audio_path) continue;
+              let audioUrl: string | null = null;
+              let imageUrl: string | null = null;
+
+              if (record.audio_path) {
+                const { data } = await supabase.storage
+                  .from('audio')
+                  .createSignedUrl(record.audio_path, 3600);
+                audioUrl = data?.signedUrl || null;
+              }
+
+              if (record.image_path) {
+                const { data } = await supabase.storage
+                  .from('images')
+                  .createSignedUrl(record.image_path, 3600);
+                imageUrl = data?.signedUrl || null;
+              }
+
+              items.push({
+                id: record.id,
+                type: 'audio',
+                title: record.title,
+                audioUrl,
+                imageUrl,
+                createdAt: record.created_at,
+              });
             }
-
-            if (video.thumbnail_path) {
-              const { data } = await supabase.storage
-                .from('videos')
-                .createSignedUrl(video.thumbnail_path, 3600);
-              thumbnailUrl = data?.signedUrl || null;
-            }
-
-            items.push({
-              id: video.id,
-              type: 'video',
-              title: video.title,
-              videoUrl,
-              thumbnailUrl,
-              createdAt: video.created_at,
-            });
           } else {
             hasLockedContent = true;
           }
         }
 
-        // Process narrations with audio
-        for (const narration of narrations) {
-          if (!narration.audio_path) continue;
-          if (isUnlocked(narration, child.birthdate)) {
-            let audioUrl: string | null = null;
-            let imageUrl: string | null = null;
-
-            if (narration.audio_path) {
-              const { data } = await supabase.storage
-                .from('audio')
-                .createSignedUrl(narration.audio_path, 3600);
-              audioUrl = data?.signedUrl || null;
-            }
-
-            if (narration.image_path) {
-              const { data } = await supabase.storage
-                .from('images')
-                .createSignedUrl(narration.image_path, 3600);
-              imageUrl = data?.signedUrl || null;
-            }
-
-            items.push({
-              id: narration.id,
-              type: 'audio',
-              title: narration.title,
-              audioUrl,
-              imageUrl,
-              createdAt: narration.created_at,
-            });
-          } else {
-            hasLockedContent = true;
-          }
-        }
-
-        // Sort by newest first
-        items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        // RPC already returns results sorted by created_at DESC
 
         // Add locked card at end if there are locked items
         if (hasLockedContent) {
