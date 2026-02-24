@@ -23,7 +23,6 @@ import Animated, {
   withTiming,
   withSequence,
   withRepeat,
-  Easing,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from 'utils/supabase';
@@ -48,6 +47,7 @@ type FeedItem = {
   imageUrl?: string | null;
   thumbnailUrl?: string | null;
   createdAt: string;
+  dadNotes?: string | null;
 };
 
 type FilterType = 'all' | 'videos' | 'audio';
@@ -161,77 +161,46 @@ function PlayPauseOverlay({ visible, icon }: { visible: boolean; icon?: string }
   );
 }
 
-// ── AudioPulse — pulsing rings for audio stories ─────────────────────────────
+// ── AudioBadge — small indicator for audio stories (not centered) ────────────
 
-function AudioPulse({ isPlaying }: { isPlaying: boolean }) {
-  const scale1 = useSharedValue(1);
-  const opacity1 = useSharedValue(0.5);
-  const scale2 = useSharedValue(1);
-  const opacity2 = useSharedValue(0.3);
+function AudioBadge({ isPlaying }: { isPlaying: boolean }) {
+  const dotOpacity = useSharedValue(0.4);
 
   useEffect(() => {
     if (isPlaying) {
-      scale1.value = withRepeat(
+      dotOpacity.value = withRepeat(
         withSequence(
-          withTiming(1.4, { duration: 1200, easing: Easing.out(Easing.ease) }),
-          withTiming(1, { duration: 1200, easing: Easing.in(Easing.ease) }),
-        ), -1, false,
-      );
-      opacity1.value = withRepeat(
-        withSequence(
-          withTiming(0.15, { duration: 1200 }),
-          withTiming(0.5, { duration: 1200 }),
-        ), -1, false,
-      );
-      scale2.value = withRepeat(
-        withSequence(
-          withTiming(1.6, { duration: 1500, easing: Easing.out(Easing.ease) }),
-          withTiming(1, { duration: 1500, easing: Easing.in(Easing.ease) }),
-        ), -1, false,
-      );
-      opacity2.value = withRepeat(
-        withSequence(
-          withTiming(0.05, { duration: 1500 }),
-          withTiming(0.3, { duration: 1500 }),
+          withTiming(1, { duration: 600 }),
+          withTiming(0.3, { duration: 600 }),
         ), -1, false,
       );
     } else {
-      scale1.value = withTiming(1, { duration: 300 });
-      opacity1.value = withTiming(0.5, { duration: 300 });
-      scale2.value = withTiming(1, { duration: 300 });
-      opacity2.value = withTiming(0.3, { duration: 300 });
+      dotOpacity.value = withTiming(0.4, { duration: 200 });
     }
   }, [isPlaying]);
 
-  const ring1 = useAnimatedStyle(() => ({
-    transform: [{ scale: scale1.value }],
-    opacity: opacity1.value,
-  }));
-  const ring2 = useAnimatedStyle(() => ({
-    transform: [{ scale: scale2.value }],
-    opacity: opacity2.value,
+  const dotStyle = useAnimatedStyle(() => ({
+    opacity: dotOpacity.value,
   }));
 
   return (
     <View style={{
-      position: 'absolute', top: SCREEN_HEIGHT * 0.32, left: 0, right: 0,
-      alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
+      position: 'absolute', top: SAFE_TOP + 46, left: 16,
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 14,
+      paddingHorizontal: 10, paddingVertical: 5,
+      pointerEvents: 'none',
     }}>
-      <Animated.View style={[ring2, {
-        position: 'absolute', width: 180, height: 180, borderRadius: 90,
-        borderWidth: 1.5, borderColor: 'rgba(196,164,113,0.4)',
-      }]} />
-      <Animated.View style={[ring1, {
-        position: 'absolute', width: 140, height: 140, borderRadius: 70,
-        borderWidth: 2, borderColor: 'rgba(196,164,113,0.6)',
-      }]} />
-      <View style={{
-        width: 80, height: 80, borderRadius: 40,
-        backgroundColor: 'rgba(196,164,113,0.25)',
-        justifyContent: 'center', alignItems: 'center',
-      }}>
-        <Ionicons name="musical-notes" size={36} color="#c4a471" />
-      </View>
+      <Ionicons name="headset-outline" size={14} color="#c4a471" />
+      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600', marginLeft: 5 }}>
+        {isPlaying ? 'Playing' : 'Tap to play'}
+      </Text>
+      {isPlaying ? (
+        <Animated.View style={[dotStyle, {
+          width: 6, height: 6, borderRadius: 3,
+          backgroundColor: '#c4a471', marginLeft: 6,
+        }]} />
+      ) : null}
     </View>
   );
 }
@@ -360,15 +329,19 @@ function BottomInfo({
   item: FeedItem;
   parentName: string;
 }) {
+  const [notesExpanded, setNotesExpanded] = useState(false);
+
   if (item.type === 'locked' || item.type === 'empty') return null;
 
   const isAudio = item.type === 'audio';
+  const hasDadNotes = !!item.dadNotes?.trim();
 
   return (
-    <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }} pointerEvents="none">
+    <View style={{ position: 'absolute', bottom: 0, left: 0, right: 60 }} pointerEvents="box-none">
       <LinearGradient
         colors={['transparent', 'rgba(0,0,0,0.75)']}
         style={{ paddingHorizontal: 16, paddingBottom: 40, paddingTop: 60 }}
+        pointerEvents="box-none"
       >
         {/* Dad's name row */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
@@ -392,12 +365,40 @@ function BottomInfo({
         {/* Title */}
         {item.title ? (
           <Text style={{
-            color: 'white', fontSize: 17, fontWeight: '700', marginBottom: 8,
+            color: 'white', fontSize: 17, fontWeight: '700', marginBottom: 6,
             textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 },
             textShadowRadius: 3,
           }}>
             {item.title}
           </Text>
+        ) : null}
+
+        {/* Dad's notes */}
+        {hasDadNotes ? (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setNotesExpanded((p) => !p)}
+            style={{ marginBottom: 8 }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+              <Ionicons name="document-text-outline" size={13} color="rgba(255,255,255,0.6)" style={{ marginTop: 2, marginRight: 5 }} />
+              <Text
+                numberOfLines={notesExpanded ? undefined : 2}
+                style={{
+                  flex: 1, color: 'rgba(255,255,255,0.8)', fontSize: 13, lineHeight: 18,
+                  textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 },
+                  textShadowRadius: 2,
+                }}
+              >
+                {item.dadNotes}
+              </Text>
+            </View>
+            {!notesExpanded && item.dadNotes!.length > 80 ? (
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2, marginLeft: 18 }}>
+                more...
+              </Text>
+            ) : null}
+          </TouchableOpacity>
         ) : null}
 
         {/* Type badge + date row */}
@@ -655,7 +656,8 @@ function FeedVideoItem({
 }) {
   const videoRef = useRef<Video>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
-  const [isPaused, setIsPaused] = useState(false);
+  // Audio starts paused (user must tap to play); video auto-plays
+  const [isPaused, setIsPaused] = useState(item.type === 'audio');
   const [showPauseOverlay, setShowPauseOverlay] = useState(false);
   const [pauseIcon, setPauseIcon] = useState('play');
   const lastTapRef = useRef(0);
@@ -712,15 +714,19 @@ function FeedVideoItem({
     };
   }, [item.audioUrl]);
 
-  // Audio play/pause based on active state
+  // Audio play/pause — does NOT auto-play. Only plays when user has tapped.
+  // When scrolling away (isActive=false), always pause.
+  // When scrolling back (isActive=true), only resume if user had started playback.
   useEffect(() => {
     if (item.type !== 'audio' || !soundRef.current) return;
-    if (isActive && !isPaused) {
-      soundRef.current.playAsync().catch(() => {});
-    } else {
+    if (!isActive) {
+      // Always pause when scrolling away
       soundRef.current.pauseAsync().catch(() => {});
+    } else if (!isPaused && isAudioPlaying) {
+      // Resume only if it was already playing before scroll
+      soundRef.current.playAsync().catch(() => {});
     }
-  }, [isActive, isPaused, item.type]);
+  }, [isActive, item.type]);
 
   const handleTap = (evt: any) => {
     const now = Date.now();
@@ -840,24 +846,8 @@ function FeedVideoItem({
           />
         )}
 
-        {/* Pulsing audio visualization */}
-        <AudioPulse isPlaying={isAudioPlaying && isActive} />
-
-        {/* Centered title for audio without image */}
-        {!item.imageUrl && item.title ? (
-          <View style={{
-            position: 'absolute', top: SCREEN_HEIGHT * 0.52, left: 0, right: 0,
-            alignItems: 'center', paddingHorizontal: 40,
-          }}>
-            <Text style={{
-              color: 'white', fontSize: 22, fontWeight: '700', textAlign: 'center',
-              textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 },
-              textShadowRadius: 4,
-            }}>
-              {item.title}
-            </Text>
-          </View>
-        ) : null}
+        {/* Small audio badge indicator (top-left, under filter tabs) */}
+        <AudioBadge isPlaying={isAudioPlaying && isActive} />
 
         <PlayPauseOverlay visible={showPauseOverlay} icon={pauseIcon} />
 
@@ -1085,6 +1075,7 @@ export default function KidsFeedScreen() {
               items.push({
                 id: record.id, type: 'video', title: record.title,
                 videoUrl, thumbnailUrl, createdAt: record.created_at,
+                dadNotes: record.notes || null,
               });
             } else if (record.content_type === 'audio') {
               if (!record.audio_path) continue;
@@ -1105,6 +1096,7 @@ export default function KidsFeedScreen() {
               items.push({
                 id: record.id, type: 'audio', title: record.title,
                 audioUrl, imageUrl, createdAt: record.created_at,
+                dadNotes: record.notes || null,
               });
             }
           } else {
